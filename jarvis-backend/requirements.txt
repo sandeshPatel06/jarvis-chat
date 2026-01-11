@@ -30,3 +30,4 @@ txaio==25.12.2
 typing-extensions==4.15.0
 ujson==5.11.0
 zope-interface==8.2
+whitenoise==6.6.0
