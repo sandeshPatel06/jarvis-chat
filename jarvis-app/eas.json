@@ -5,12 +5,25 @@
     "build": {
         "development": {
             "developmentClient": true,
-            "distribution": "internal"
+            "distribution": "internal",
+            "env": {
+                "EXPO_PUBLIC_API_URL": "https://jarvis-chat-nhi5.onrender.com/api",
+                "EXPO_PUBLIC_WS_URL": "ws://jarvis-chat-nhi5.onrender.com/ws/chat"
+            }
         },
         "preview": {
-            "distribution": "internal"
+            "distribution": "internal",
+            "env": {
+                "EXPO_PUBLIC_API_URL": "https://jarvis-chat-nhi5.onrender.com/api",
+                "EXPO_PUBLIC_WS_URL": "ws://jarvis-chat-nhi5.onrender.com/ws/chat"
+            }
         },
-        "production": {}
+        "production": {
+            "env": {
+                "EXPO_PUBLIC_API_URL": "https://jarvis-chat-nhi5.onrender.com/api",
+                "EXPO_PUBLIC_WS_URL": "ws://jarvis-chat-nhi5.onrender.com/ws/chat"
+            }
+        }
     },
     "submit": {
         "production": {}

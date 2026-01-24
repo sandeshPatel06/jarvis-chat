@@ -7,6 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import Colors from '@/constants/Colors';
 import { useStore } from '@/store';
@@ -108,34 +109,36 @@ function RootLayoutNav() {
   }, [token, segments, hasHydrated]);
 
   return (
-    <SafeAreaProvider>
-      <ThemeProvider value={theme}>
-        <StatusBar style={isDark ? "light" : "dark"} />
-        <Stack
-          screenOptions={{
-            headerStyle: {
-              backgroundColor: isDark ? Colors.dark.background : Colors.light.background,
-            },
-            headerTintColor: isDark ? Colors.dark.text : Colors.light.text,
-            contentStyle: {
-              backgroundColor: isDark ? Colors.dark.background : Colors.light.background,
-            }
-          }}
-        >
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen
-            name="chat/[id]"
-            options={{
-              presentation: 'card',
-              headerShown: false,
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <ThemeProvider value={theme}>
+          <StatusBar style={isDark ? "light" : "dark"} />
+          <Stack
+            screenOptions={{
+              headerStyle: {
+                backgroundColor: isDark ? Colors.dark.background : Colors.light.background,
+              },
+              headerTintColor: isDark ? Colors.dark.text : Colors.light.text,
+              contentStyle: {
+                backgroundColor: isDark ? Colors.dark.background : Colors.light.background,
+              }
             }}
-          />
-          <Stack.Screen name="contact/[id]" options={{ headerShown: false }} />
-          <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="auth/login" options={{ headerShown: false }} />
-          <Stack.Screen name="auth/signup" options={{ headerShown: false }} />
-        </Stack>
-      </ThemeProvider>
-    </SafeAreaProvider>
+          >
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen
+              name="chat/[id]"
+              options={{
+                presentation: 'card',
+                headerShown: false,
+              }}
+            />
+            <Stack.Screen name="contact/[id]" options={{ headerShown: false }} />
+            <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="auth/login" options={{ headerShown: false }} />
+            <Stack.Screen name="auth/signup" options={{ headerShown: false }} />
+          </Stack>
+        </ThemeProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

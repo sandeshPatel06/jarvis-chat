@@ -4,7 +4,7 @@ import Colors from '@/constants/Colors';
 import { useStore } from '@/store';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
-import { Alert, Image, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { Alert, Image, ScrollView, StyleSheet, TouchableOpacity, Switch } from 'react-native';
 
 import { useAppTheme } from '@/hooks/useAppTheme';
 
@@ -66,6 +66,21 @@ export default function SettingsScreen() {
                         ]);
                     }}
                 />
+                <View style={styles.item}>
+                    <View style={styles.iconContainer}>
+                        <FontAwesome name="bolt" size={22} color={colors.accent} style={{ opacity: 0.8 }} />
+                    </View>
+                    <View style={styles.textContainer}>
+                        <Text style={[styles.itemTitle, { color: colors.text }]}>Enable Animations</Text>
+                        <Text style={styles.itemSubtitle}>Smooth layout transitions</Text>
+                    </View>
+                    <Switch
+                        value={useStore((state) => state.animationsEnabled)}
+                        onValueChange={(val) => useStore.getState().setAnimationsEnabled(val)}
+                        trackColor={{ false: '#767577', true: colors.primary }}
+                        thumbColor={'white'}
+                    />
+                </View>
                 <SettingItem icon="comment" title="Chats" subtitle="Theme, wallpapers, chat history" />
                 <SettingItem icon="bell" title="Notifications" subtitle="Message, group & call tones" />
                 <SettingItem icon="hdd-o" title="Storage and data" subtitle="Network usage, auto-download" />

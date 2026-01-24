@@ -11,10 +11,14 @@ class Conversation(models.Model):
 class Message(models.Model):
     conversation = models.ForeignKey(Conversation, related_name='messages', on_delete=models.CASCADE)
     sender = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='sent_messages', on_delete=models.CASCADE)
-    text = models.TextField()
+    text = models.TextField(blank=True) # allow blank for file-only messages
+    file = models.FileField(upload_to='chat_files/', null=True, blank=True)
+    file_type = models.CharField(max_length=50, null=True, blank=True)
+    file_name = models.CharField(max_length=255, null=True, blank=True)
     timestamp = models.DateTimeField(auto_now_add=True)
     is_read = models.BooleanField(default=False)
     is_delivered = models.BooleanField(default=False)
+    reply_to = models.ForeignKey('self', null=True, blank=True, related_name='replies', on_delete=models.SET_NULL)
 
     def __str__(self):
         return f"{self.sender.username}: {self.text[:20]}"

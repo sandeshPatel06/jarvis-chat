@@ -93,8 +93,8 @@ export const api = {
                 return [];
             }
         },
-        getMessages: async (token: string, conversationId: string) => {
-            const url = `${API_URL}/chat/messages/${conversationId}/`;
+        getMessages: async (token: string, conversationId: string, limit: number = 20, offset: number = 0) => {
+            const url = `${API_URL}/chat/messages/${conversationId}/?limit=${limit}&offset=${offset}`;
             try {
                 log(`GET ${url}`);
                 const response = await fetch(url, {
@@ -105,9 +105,13 @@ export const api = {
                     },
                 });
                 const json = await response.json();
-                log(`Messages fetched from ${url}`, { count: json.length });
+
+                // Keep backward compatibility if backend returns dict with 'results'
+                const results = Array.isArray(json) ? json : (json.results || []);
+
+                log(`Messages fetched from ${url}`, { count: results.length });
                 if (!response.ok) throw new Error('Failed to fetch messages');
-                return json;
+                return results;
             } catch (error) {
                 log(`Fetch messages error from ${url}`, error);
                 console.error(error);
@@ -186,6 +190,54 @@ export const api = {
                 }
             } catch (error) {
                 log(`Delete conversation error`, error);
+                throw error;
+            }
+        },
+        uploadFile: async (token: string, conversationId: string | null, recipientUsername: string | null, file: any, text: string = '', replyToId?: string) => {
+            const url = `${API_URL}/chat/messages/upload/`;
+            const formData = new FormData();
+
+            if (conversationId) formData.append('conversation_id', conversationId);
+            if (recipientUsername) formData.append('recipient_username', recipientUsername);
+            formData.append('text', text);
+            if (replyToId) formData.append('reply_to_id', replyToId);
+
+            if (file) {
+                // Expo Document Picker result structure
+                formData.append('file', {
+                    uri: file.uri,
+                    name: file.name || 'file',
+                    type: file.mimeType || 'application/octet-stream'
+                } as any);
+
+                // Send file_type and file_name separately for backend
+                if (file.mimeType) {
+                    formData.append('file_type', file.mimeType);
+                }
+                if (file.name) {
+                    formData.append('file_name', file.name);
+                }
+
+                log('File being uploaded', { name: file.name, type: file.mimeType, uri: file.uri });
+            }
+
+            try {
+                log(`POST ${url} (Multipart)`, { conversationId, hasFile: !!file });
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Token ${token}`,
+                        // Do NOT set Content-Type for multipart/form-data - let fetch set it with boundary
+                    },
+                    body: formData,
+                });
+
+                const json = await response.json();
+                log('Upload response', { status: response.status, json });
+                if (!response.ok) throw new Error(JSON.stringify(json) || 'Upload failed');
+                return json;
+            } catch (error) {
+                log('Upload error', error);
                 throw error;
             }
         }

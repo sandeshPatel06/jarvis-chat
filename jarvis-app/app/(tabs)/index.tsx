@@ -1,12 +1,13 @@
 import { ScreenWrapper } from '@/components/ScreenWrapper';
 import { Text, View } from '@/components/Themed';
 import Colors from '@/constants/Colors';
-import { Chat, useStore } from '@/store';
+import { useStore } from '@/store';
+import { Chat } from '@/types';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { FlatList, Image, Pressable, StyleSheet, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { FlatList, Image, Pressable, StyleSheet, TextInput, TouchableOpacity, Alert, LayoutAnimation } from 'react-native';
 
 import { useAppTheme } from '@/hooks/useAppTheme';
 
@@ -26,6 +27,14 @@ export default function ChatsScreen() {
     chat.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     chat.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const animationsEnabled = useStore((state) => state.animationsEnabled);
+
+  useEffect(() => {
+    if (animationsEnabled) {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    }
+  }, [searchQuery, isSelectionMode, chats, animationsEnabled]);
 
   useEffect(() => {
     if (user) {
@@ -85,14 +94,19 @@ export default function ChatsScreen() {
   const renderItem = ({ item }: { item: Chat }) => {
     const isSelected = selectedChats.has(item.id);
     return (
-      <View style={{ backgroundColor: isSelected ? colors.primary + '20' : 'transparent' }}>
+      <View style={{ paddingHorizontal: 15 }}>
         <Pressable
           onPress={() => handlePress(item.id)}
           onLongPress={() => handleLongPress(item.id)}
           delayLongPress={300}
           style={({ pressed }) => [
             styles.itemContainer,
-            { opacity: pressed ? 0.7 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] }
+            {
+              backgroundColor: isSelected ? colors.primary + '20' : colors.inputBackground, // Card background
+              opacity: pressed ? 0.9 : 1,
+              transform: [{ scale: pressed ? 0.98 : 1 }],
+              borderRadius: 20, // Rounded Corners
+            }
           ]}
         >
           {isSelectionMode && (
@@ -103,16 +117,16 @@ export default function ChatsScreen() {
           <Image source={item.avatar ? { uri: item.avatar } : require('@/assets/images/default-avatar.png')} style={styles.avatar} />
           <View style={styles.contentContainer}>
             <View style={styles.headerRow}>
-              <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
-              <Text style={styles.time}>{formatTime(item.lastMessageTime)}</Text>
+              <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{item.name}</Text>
+              <Text style={[styles.time, { color: colors.tabIconDefault }]}>{formatTime(item.lastMessageTime)}</Text>
             </View>
             <View style={styles.messageRow}>
-              <Text numberOfLines={1} style={styles.message}>
+              <Text numberOfLines={1} style={[styles.message, { color: colors.text, opacity: 0.7 }]}>
                 {item.lastMessage}
               </Text>
               {item.unreadCount > 0 && (
                 <LinearGradient
-                  colors={[Colors.dark.primary, Colors.dark.secondary]}
+                  colors={[colors.primary, colors.secondary]}
                   style={styles.unreadBadge}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
@@ -123,7 +137,6 @@ export default function ChatsScreen() {
             </View>
           </View>
         </Pressable>
-        <View style={styles.separator} />
       </View>
     )
   };
@@ -141,7 +154,7 @@ export default function ChatsScreen() {
     <ScreenWrapper style={styles.container}>
 
       {/* Custom Header with Toggle Search or Selection Mode */}
-      <View style={[styles.header, { borderBottomColor: colors.itemSeparator }]}>
+      <View style={[styles.header, { borderBottomColor: 'transparent' }]}>
         {isSelectionMode ? (
           <View style={styles.headerTitleContainer}>
             <TouchableOpacity onPress={handleCancelSelection} style={styles.headerIcon}>
@@ -154,10 +167,15 @@ export default function ChatsScreen() {
           </View>
         ) : !isSearching ? (
           <View style={styles.headerTitleContainer}>
-            <Text style={[styles.headerTitle, { color: colors.text }]}>Chats</Text>
-            <TouchableOpacity onPress={toggleSearch} style={styles.headerIcon}>
-              <FontAwesome name="search" size={24} color={colors.text} />
-            </TouchableOpacity>
+            {/* Modern Large Title is handled by _layout, we can keep this empty or just show search icon if needed, 
+                 but _layout has search icon. Let's effectively hide this custom header or merge it. 
+                 Since _layout provides the header, we might just want to use the list content. 
+                 However, the code has a custom header inside the screen. 
+                 Let's keep the custom header logic for Selection Mode, but hide the default "Chats" title if _layout shows it.
+                 Actually, the previous _layout had headerShown: true. 
+                 Let's simplify: removing the "Chats" title from here since it's in the navigation header now.
+             */}
+            <View />
           </View>
         ) : (
           <View style={styles.headerSearchContainer}>
@@ -186,11 +204,13 @@ export default function ChatsScreen() {
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
+        ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
       />
 
       <TouchableOpacity
         style={styles.fab}
         onPress={() => router.push('/contacts/select')}
+        activeOpacity={0.8}
       >
         <LinearGradient
           colors={[colors.primary, colors.secondary]}
@@ -198,7 +218,7 @@ export default function ChatsScreen() {
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
         >
-          <FontAwesome name="comment" size={24} color="white" />
+          <FontAwesome name="plus" size={24} color="white" />
         </LinearGradient>
       </TouchableOpacity>
     </ScreenWrapper>
@@ -210,10 +230,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    height: 60,
     justifyContent: 'center',
     paddingHorizontal: 15,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingTop: 10,
   },
   headerTitleContainer: {
     flexDirection: 'row',
@@ -223,6 +242,10 @@ const styles = StyleSheet.create({
   headerSearchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    borderRadius: 15,
+    padding: 10,
+    marginBottom: 10,
   },
   headerTitle: {
     fontSize: 28,
@@ -233,88 +256,93 @@ const styles = StyleSheet.create({
   },
   headerSearchInput: {
     flex: 1,
-    fontSize: 18,
-    marginLeft: 15,
+    fontSize: 16,
+    marginLeft: 10,
     marginRight: 10,
   },
   listContent: {
     paddingTop: 10,
+    paddingBottom: 100, // Space for FAB
   },
   itemContainer: {
     flexDirection: 'row',
     padding: 15,
     alignItems: 'center',
-    backgroundColor: 'transparent',
+    // shadowColor: "#000",
+    // shadowOffset: {
+    // 	width: 0,
+    // 	height: 1,
+    // },
+    // shadowOpacity: 0.05,
+    // shadowRadius: 2,
+    // elevation: 1,
   },
   avatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     marginRight: 15,
-    borderWidth: 2,
   },
   contentContainer: {
     flex: 1,
     justifyContent: 'center',
-    backgroundColor: 'transparent',
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 5,
-    backgroundColor: 'transparent',
+    marginBottom: 4,
   },
   name: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 17,
+    fontWeight: '700',
   },
   time: {
     fontSize: 12,
+    fontWeight: '500',
   },
   messageRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: 'transparent',
   },
   message: {
-    fontSize: 14,
+    fontSize: 15,
     flex: 1,
     marginRight: 10,
   },
   unreadBadge: {
-    minWidth: 24,
-    height: 24,
-    borderRadius: 12,
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 6,
   },
   unreadText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: 'bold',
+    color: 'white',
   },
   separator: {
-    height: StyleSheet.hairlineWidth,
-    marginLeft: 90,
+    display: 'none', // Remove separator
   },
   fab: {
     position: 'absolute',
-    bottom: 20,
+    bottom: 90, // Above tab bar
     right: 20,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: 8,
     },
-    shadowOpacity: 0.3,
-    shadowRadius: 4.65,
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
     elevation: 8,
   },
   fabGradient: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
   },

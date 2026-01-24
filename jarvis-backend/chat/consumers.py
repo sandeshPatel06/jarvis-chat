@@ -101,13 +101,105 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 )
             return
 
+        if message_type == 'edit_message':
+            message_id = text_data_json.get('message_id')
+            new_text = text_data_json.get('new_text')
+            conversation_id = text_data_json.get('conversation_id')
+            
+            if message_id and new_text:
+                success = await self.edit_message(message_id, new_text)
+                if success:
+                    # Notify everyone in the conversation (simplify by sending to sender and recipient)
+                    # For a real group chat, we'd send to a group channel for the conversation. 
+                    # Here we have user-specific channels.
+                    
+                    # Notify sender
+                    await self.send(text_data=json.dumps({
+                        'type': 'message_edited',
+                        'message_id': message_id,
+                        'conversation_id': conversation_id,
+                        'new_text': new_text
+                    }))
+
+                    # Notify recipient
+                    recipient_id = await self.get_recipient_from_conversation(conversation_id)
+                    if recipient_id:
+                         await self.channel_layer.group_send(
+                            f"user_{recipient_id}",
+                            {
+                                'type': 'message_edited',
+                                'message_id': message_id,
+                                'conversation_id': conversation_id,
+                                'new_text': new_text
+                            }
+                        )
+            return
+
+        if message_type == 'delete_message':
+            message_id = text_data_json.get('message_id')
+            conversation_id = text_data_json.get('conversation_id')
+            
+            if message_id:
+                success = await self.delete_message(message_id)
+                if success:
+                    # Notify sender
+                    await self.send(text_data=json.dumps({
+                        'type': 'message_deleted',
+                        'message_id': message_id,
+                        'conversation_id': conversation_id,
+                        'deleted_by': self.user.username,
+                    }))
+
+                    # Notify recipient
+                    recipient_id = await self.get_recipient_from_conversation(conversation_id)
+                    if recipient_id:
+                         await self.channel_layer.group_send(
+                            f"user_{recipient_id}",
+                            {
+                                'type': 'message_deleted',
+                                'message_id': message_id,
+                                'conversation_id': conversation_id
+                            }
+                        )
+            return
+
+        if message_type == 'react_message':
+            message_id = text_data_json.get('message_id')
+            conversation_id = text_data_json.get('conversation_id')
+            reaction = text_data_json.get('reaction')
+            
+            if message_id and reaction:
+                reactions_list = await self.react_to_message(message_id, reaction)
+                # Notify sender
+                await self.send(text_data=json.dumps({
+                    'type': 'message_reaction',
+                    'message_id': message_id,
+                    'conversation_id': conversation_id,
+                    'reactions': reactions_list
+                }))
+
+                # Notify recipient
+                recipient_id = await self.get_recipient_from_conversation(conversation_id)
+                if recipient_id:
+                        await self.channel_layer.group_send(
+                        f"user_{recipient_id}",
+                        {
+                            'type': 'message_reaction',
+                            'message_id': message_id,
+                            'conversation_id': conversation_id,
+                            'reactions': reactions_list
+                        }
+                    )
+            return
+
         message_text = text_data_json.get('message')
         recipient_id = text_data_json.get('recipient_id')
         conversation_id = text_data_json.get('conversation_id')
+        reply_to_id = text_data_json.get('reply_to_id')
 
         if message_text:
             # Save message to database
-            saved_message_data, recipient_id_derived = await self.save_message(message_text, recipient_id, conversation_id)
+            saved_message_data, recipient_id_derived = await self.save_message(message_text, recipient_id, conversation_id, reply_to_id)
 
             if saved_message_data:
                 # Send message to sender
@@ -207,7 +299,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             return None
 
     @database_sync_to_async
-    def save_message(self, message_text, recipient_id, conversation_id):
+    def save_message(self, message_text, recipient_id, conversation_id, reply_to_id=None):
         from .models import Conversation, Message
         from .serializers import MessageSerializer
         from django.db.models import Q
@@ -221,10 +313,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
                  conversation = Conversation.objects.filter(participants=self.user).filter(participants=recipient).first()
             
             if conversation:
+                reply_to_message = None
+                if reply_to_id:
+                    reply_to_message = Message.objects.filter(id=reply_to_id).first()
+
                 message = Message.objects.create(
                     conversation=conversation,
                     sender=self.user,
-                    text=message_text
+                    text=message_text,
+                    reply_to=reply_to_message
                 )
                 
                 # Determine recipient for return
@@ -246,3 +343,67 @@ class ChatConsumer(AsyncWebsocketConsumer):
             print(f"Error saving message: {e}")
             return None, None
         return None, None
+
+    @database_sync_to_async
+    def edit_message(self, message_id, new_text):
+        from .models import Message
+        try:
+            message = Message.objects.get(id=message_id, sender=self.user)
+            message.text = new_text
+            message.save()
+            return True
+        except Message.DoesNotExist:
+            return False
+
+    @database_sync_to_async
+    def delete_message(self, message_id):
+        from .models import Message
+        try:
+            message = Message.objects.get(id=message_id, sender=self.user)
+            message.delete()
+            return True
+        except Message.DoesNotExist:
+            return False
+
+    @database_sync_to_async
+    def react_to_message(self, message_id, emoji):
+        from .models import Message, Reaction
+        try:
+            message = Message.objects.get(id=message_id)
+            # Check if user is participant
+            if not message.conversation.participants.filter(id=self.user.id).exists():
+               return []
+            
+            existing = Reaction.objects.filter(message=message, user=self.user, emoji=emoji).first()
+            if existing:
+                existing.delete()
+            else:
+                Reaction.objects.create(message=message, user=self.user, emoji=emoji)
+            
+            return list(message.reactions.values_list('emoji', flat=True))
+        except Message.DoesNotExist:
+            return []
+
+    async def message_edited(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'message_edited',
+            'message_id': event['message_id'],
+            'conversation_id': event['conversation_id'],
+            'new_text': event['new_text']
+        }))
+
+    async def message_deleted(self, event):
+         await self.send(text_data=json.dumps({
+            'type': 'message_deleted',
+            'message_id': event['message_id'],
+            'conversation_id': event['conversation_id'],
+            'deleted_by': event.get('deleted_by', 'user'),  # Include who deleted it
+        }))
+
+    async def message_reaction(self, event):
+         await self.send(text_data=json.dumps({
+            'type': 'message_reaction',
+            'message_id': event['message_id'],
+            'conversation_id': event['conversation_id'],
+            'reactions': event['reactions']
+        }))

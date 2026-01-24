@@ -38,7 +38,7 @@ export default function ProfileScreen() {
     };
 
     return (
-        <ScreenWrapper style={styles.container} edges={[]}>
+        <ScreenWrapper style={styles.container} edges={['top', 'left', 'right']}>
             <Stack.Screen options={{
                 headerShown: true,
                 title: "Profile",
@@ -125,9 +125,11 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: Colors.dark.background,
+        paddingTop: 20,
     },
     content: {
         padding: 20,
+
     },
     avatarContainer: {
         alignItems: 'center',

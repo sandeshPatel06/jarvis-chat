@@ -27,11 +27,13 @@ class ConversationListView(generics.ListCreateAPIView):
         try:
             recipient = User.objects.get(username=recipient_username)
             if recipient == request.user:
+                 # Self chat
                 conversation = Conversation.objects.filter(participants=request.user).annotate(num_participants=Count('participants')).filter(num_participants=1).first()
                 if not conversation:
-                    conversation = Conversation.objects.create()
-                    conversation.participants.add(request.user)
+                     conversation = Conversation.objects.create()
+                     conversation.participants.add(request.user)
             else:
+                # 1-on-1 chat
                 conversation = Conversation.objects.filter(participants=request.user).filter(participants=recipient).annotate(num_participants=Count('participants')).filter(num_participants=2).first()
                 
                 if not conversation:
@@ -53,13 +55,17 @@ class ConversationDetailView(generics.DestroyAPIView):
         # Users can only delete conversations they are part of
         return self.request.user.conversations.all()
 
+from rest_framework.pagination import LimitOffsetPagination
+
 class MessageListView(generics.ListAPIView):
     serializer_class = MessageSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = LimitOffsetPagination
 
     def get_queryset(self):
         conversation_id = self.kwargs['conversation_id']
-        return Message.objects.filter(conversation_id=conversation_id).order_by('timestamp')
+        # Return newest messages first for inverted list
+        return Message.objects.filter(conversation_id=conversation_id).order_by('-timestamp')
 
 class MessageDetailView(generics.DestroyAPIView):
     queryset = Message.objects.all()
@@ -84,14 +90,102 @@ class ReactionView(APIView):
             if not emoji:
                 return Response({"error": "Emoji required"}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Toggle reaction
-            existing = Reaction.objects.filter(message=message, user=request.user, emoji=emoji).first()
-            if existing:
-                existing.delete()
-                return Response({"status": "removed"}, status=status.HTTP_200_OK)
-            else:
-                Reaction.objects.create(message=message, user=request.user, emoji=emoji)
-                return Response({"status": "added"}, status=status.HTTP_201_CREATED)
+            # Replace existing reaction from this user
+            # First, delete any existing reactions from this user on this message
+            Reaction.objects.filter(message=message, user=request.user).delete()
+            
+            # Then create the new reaction
+            Reaction.objects.create(message=message, user=request.user, emoji=emoji)
+            return Response({"status": "added"}, status=status.HTTP_201_CREATED)
 
         except Message.DoesNotExist:
             return Response({"error": "Message not found"}, status=status.HTTP_404_NOT_FOUND)
+
+from rest_framework.parsers import MultiPartParser, FormParser
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
+
+class MessageUploadView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = (MultiPartParser, FormParser)
+
+    def post(self, request, *args, **kwargs):
+        conversation_id = request.data.get('conversation_id')
+        recipient_username = request.data.get('recipient_username')
+        text = request.data.get('text', '')
+        file = request.data.get('file')
+        file_type = request.data.get('file_type')
+        file_name = request.data.get('file_name')
+        reply_to_id = request.data.get('reply_to_id')
+
+        # Allow file only, text only, or both
+        if not file and not text:
+             return Response({"error": "Message must have text or file"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            conversation = None
+            if conversation_id:
+                try:
+                    conversation = Conversation.objects.get(id=conversation_id)
+                except Conversation.DoesNotExist:
+                    pass
+            
+            if not conversation and recipient_username:
+                try:
+                    recipient = User.objects.get(username=recipient_username)
+                    if recipient == request.user:
+                        # Self chat
+                        conversation = Conversation.objects.filter(participants=request.user).annotate(num_participants=Count('participants')).filter(num_participants=1).first()
+                        if not conversation:
+                            conversation = Conversation.objects.create()
+                            conversation.participants.add(request.user)
+                    else:
+                        conversation = Conversation.objects.filter(participants=request.user).filter(participants=recipient).annotate(num_participants=Count('participants')).filter(num_participants=2).first()
+                        if not conversation:
+                            conversation = Conversation.objects.create()
+                            conversation.participants.add(request.user, recipient)
+                except User.DoesNotExist:
+                    pass
+
+            if not conversation:
+                return Response({"error": "Conversation not found or recipient invalid"}, status=status.HTTP_404_NOT_FOUND)
+            
+            # Verify user is in conversation
+            if not conversation.participants.filter(id=request.user.id).exists():
+                 return Response({"error": "Unauthorized"}, status=status.HTTP_403_FORBIDDEN)
+            
+            reply_to_message = None
+            if reply_to_id:
+                reply_to_message = Message.objects.filter(id=reply_to_id).first()
+
+            message = Message.objects.create(
+                conversation=conversation,
+                sender=request.user,
+                text=text,
+                file=file,
+                file_type=file_type,
+                file_name=file_name,
+                reply_to=reply_to_message
+            )
+
+            serializer = MessageSerializer(message)
+            data = serializer.data
+
+            # Broadcast via WebSocket
+            channel_layer = get_channel_layer()
+
+            # Broadcast to all participants
+            for participant in conversation.participants.all():
+                 async_to_sync(channel_layer.group_send)(
+                    f"user_{participant.id}",
+                    {
+                        'type': 'chat_message',
+                        'message': data
+                    }
+                )
+
+            return Response(data, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            print(e)
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
