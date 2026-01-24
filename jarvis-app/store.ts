@@ -7,6 +7,14 @@ import * as database from './services/database';
 import { User, Message, Chat } from '@/types';
 import { getMediaUrl, downloadMedia } from './utils/media';
 
+interface Toast {
+    type: 'success' | 'error' | 'info';
+    text1: string;
+    text2?: string;
+    id: number;
+}
+
+
 interface AppState {
     user: User | null;
     token: string | null;
@@ -45,7 +53,11 @@ interface AppState {
     animationsEnabled: boolean; // New
     setAnimationsEnabled: (enabled: boolean) => void; // New
     forwardMessage: (message: Message, chatIds: string[]) => Promise<void>; // New
+    toast: Toast | null;
+    showToast: (type: 'success' | 'error' | 'info', text1: string, text2?: string) => void;
+    hideToast: () => void;
 }
+
 
 const mockChats: Chat[] = [];
 
@@ -302,6 +314,10 @@ export const useStore = create<AppState>()(
                     // Parallel delete
                     await Promise.all(chatIds.map(id => deleteChat(id)));
                 },
+                toast: null,
+                showToast: (type, text1, text2) => set({ toast: { type, text1, text2, id: Date.now() } }),
+                hideToast: () => set({ toast: null }),
+
                 markRead: (chatId, messageId) => {
                     const { socket } = get();
                     if (socket && socket.readyState === WebSocket.OPEN) {

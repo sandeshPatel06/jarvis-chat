@@ -7,115 +7,167 @@ import { useStore } from '@/store';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Stack, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, Image, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
+import { Image, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+
+
+import { getMediaUrl } from '@/utils/media';
+
 
 export default function ProfileScreen() {
     const router = useRouter();
     const user = useStore((state) => state.user);
     const token = useStore((state) => state.token);
     const updateUser = useStore((state) => state.updateUser);
+    const showToast = useStore((state) => state.showToast);
+
 
     const [name, setName] = useState(user?.username || '');
     const [about, setAbout] = useState(user?.bio || 'Available');
     const [saving, setSaving] = useState(false);
-    const { colors } = useAppTheme();
+    const [image, setImage] = useState<string | null>(null);
+    const { colors, isDark } = useAppTheme();
+
+    const avatarUrl = getMediaUrl(user?.profile_picture);
+
+    const pickImage = async () => {
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images'],
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 1,
+        });
+
+        if (!result.canceled) {
+            setImage(result.assets[0].uri);
+        }
+    };
 
     const handleSave = async () => {
         if (!token) return;
         setSaving(true);
         try {
-            const updatedUser = await api.auth.updateProfile(token, {
-                username: name,
-                bio: about
-            });
+            let updatedUser;
+
+            if (image) {
+                // If there's a new image, use FormData
+                const formData = new FormData();
+                formData.append('username', name);
+                formData.append('bio', about);
+
+                const filename = image.split('/').pop();
+                const match = /\.(\w+)$/.exec(filename || '');
+                const type = match ? `image/${match[1]}` : `image`;
+
+                formData.append('profile_picture', {
+                    uri: image,
+                    name: filename || 'profile.jpg',
+                    type: type,
+                } as any);
+
+                updatedUser = await api.auth.updateProfile(token, formData);
+            } else {
+                // Otherwise just use JSON
+                updatedUser = await api.auth.updateProfile(token, {
+                    username: name,
+                    bio: about
+                });
+            }
+
             updateUser(updatedUser);
-            Alert.alert('Success', 'Profile updated successfully');
+            showToast('success', 'Profile Updated', 'Your profile has been updated successfully');
+            setImage(null);
         } catch (error: any) {
-            Alert.alert('Error', 'Failed to update profile');
+            console.error('Update error:', error);
+            showToast('error', 'Update Failed', 'Failed to update profile. Please try again.');
         } finally {
             setSaving(false);
         }
     };
 
+
     return (
-        <ScreenWrapper style={styles.container} edges={['top', 'left', 'right']}>
+        <ScreenWrapper style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
             <Stack.Screen options={{
                 headerShown: true,
-                title: "Profile",
+                title: "Edit Profile",
                 headerStyle: { backgroundColor: colors.background },
                 headerTintColor: colors.text,
                 headerTitleStyle: { fontWeight: 'bold' },
                 headerRight: () => (
-                    <TouchableOpacity onPress={handleSave} disabled={saving}>
-                        <Text style={{ color: colors.accent, fontWeight: 'bold', fontSize: 16 }}>
-                            {saving ? 'Saving...' : 'Save'}
-                        </Text>
+                    <TouchableOpacity onPress={handleSave} disabled={saving} style={{ paddingHorizontal: 10 }}>
+                        {saving ? (
+                            <ActivityIndicator size="small" color={colors.accent} />
+                        ) : (
+                            <Text style={{ color: colors.accent, fontWeight: 'bold', fontSize: 16 }}>
+                                Save
+                            </Text>
+                        )}
                     </TouchableOpacity>
                 )
             }} />
 
             <View style={styles.content}>
                 <View style={styles.avatarContainer}>
-                    <Image
-                        source={user?.profile_picture ? { uri: user.profile_picture } : require('@/assets/images/default-avatar.png')}
-                        style={[styles.avatar, { borderColor: colors.background }]}
-                    />
-                    <TouchableOpacity style={[styles.cameraButton, { backgroundColor: colors.primary, borderColor: colors.background }]}>
-                        <FontAwesome name="camera" size={20} color="white" />
-                    </TouchableOpacity>
-                </View>
-
-                <View style={styles.inputGroup}>
-                    <View style={styles.iconContainer}>
-                        <FontAwesome name="user" size={24} color={colors.accent} />
-                    </View>
-                    <View style={styles.textContainer}>
-                        <Text style={styles.label}>Name</Text>
-                        <TextInput
-                            style={[styles.input, { color: colors.text }]}
-                            value={name}
-                            onChangeText={setName}
-                            placeholderTextColor="#666"
+                    <TouchableOpacity onPress={pickImage} activeOpacity={0.8}>
+                        <Image
+                            source={image ? { uri: image } : (avatarUrl ? { uri: avatarUrl } : require('@/assets/images/default-avatar.png'))}
+                            style={[styles.avatar, { borderColor: colors.accent, borderWidth: 2 }]}
                         />
-                        <Text style={styles.hint}>This is not your username or pin. This name will be visible to your contacts.</Text>
-                    </View>
-                    <TouchableOpacity>
-                        <FontAwesome name="pencil" size={20} color={colors.accent} />
+                        <View style={[styles.cameraButton, { backgroundColor: colors.accent }]}>
+                            <FontAwesome name="camera" size={18} color="white" />
+                        </View>
                     </TouchableOpacity>
                 </View>
 
-                <View style={[styles.separator, { backgroundColor: colors.itemSeparator }]} />
+                <View style={[styles.card, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)' }]}>
+                    <View style={styles.inputGroup}>
+                        <View style={styles.iconContainer}>
+                            <FontAwesome name="user" size={20} color={colors.accent} />
+                        </View>
+                        <View style={styles.textContainer}>
+                            <Text style={styles.label}>Name</Text>
+                            <TextInput
+                                style={[styles.input, { color: colors.text, borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }]}
+                                value={name}
+                                onChangeText={setName}
+                                placeholder="Enter your name"
+                                placeholderTextColor="#666"
+                            />
+                            <Text style={styles.hint}>This name will be visible to your contacts in chats.</Text>
+                        </View>
+                    </View>
 
-                <View style={styles.inputGroup}>
-                    <View style={styles.iconContainer}>
-                        <FontAwesome name="info-circle" size={24} color={colors.accent} />
+                    <View style={[styles.separator, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }]} />
+
+                    <View style={styles.inputGroup}>
+                        <View style={styles.iconContainer}>
+                            <FontAwesome name="info-circle" size={20} color={colors.accent} />
+                        </View>
+                        <View style={styles.textContainer}>
+                            <Text style={styles.label}>About</Text>
+                            <TextInput
+                                style={[styles.input, { color: colors.text, borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }]}
+                                value={about}
+                                onChangeText={setAbout}
+                                placeholder="Tell us about yourself"
+                                placeholderTextColor="#666"
+                            />
+                        </View>
                     </View>
-                    <View style={styles.textContainer}>
-                        <Text style={styles.label}>About</Text>
-                        <TextInput
-                            style={[styles.input, { color: colors.text }]}
-                            value={about}
-                            onChangeText={setAbout}
-                            placeholderTextColor="#666"
-                        />
+
+                    <View style={[styles.separator, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }]} />
+
+                    <View style={styles.inputGroup}>
+                        <View style={styles.iconContainer}>
+                            <FontAwesome name="phone" size={20} color={colors.accent} />
+                        </View>
+                        <View style={styles.textContainer}>
+                            <Text style={styles.label}>Phone</Text>
+                            <Text style={[styles.readOnlyText, { color: '#888' }]}>{user?.phone_number || 'Not verified'}</Text>
+                        </View>
                     </View>
-                    <TouchableOpacity>
-                        <FontAwesome name="pencil" size={20} color={colors.accent} />
-                    </TouchableOpacity>
                 </View>
-
-                <View style={[styles.separator, { backgroundColor: colors.itemSeparator }]} />
-
-                <View style={styles.inputGroup}>
-                    <View style={styles.iconContainer}>
-                        <FontAwesome name="phone" size={24} color={colors.accent} />
-                    </View>
-                    <View style={styles.textContainer}>
-                        <Text style={styles.label}>Phone</Text>
-                        <Text style={[styles.readOnlyText, { color: colors.text }]}>{user?.phone_number || '+1 234 567 890'}</Text>
-                    </View>
-                </View>
-
             </View>
         </ScreenWrapper>
     );
@@ -124,43 +176,47 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.dark.background,
-        paddingTop: 20,
     },
     content: {
         padding: 20,
-
     },
     avatarContainer: {
         alignItems: 'center',
-        marginBottom: 30,
-        position: 'relative',
+        marginVertical: 30,
     },
     avatar: {
-        width: 150,
-        height: 150,
-        borderRadius: 75,
-        borderWidth: 3,
+        width: 140,
+        height: 140,
+        borderRadius: 70,
     },
     cameraButton: {
         position: 'absolute',
         bottom: 5,
-        right: '35%',
-        width: 44,
-        height: 44,
-        borderRadius: 22,
+        right: 5,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 3,
+        borderColor: 'white',
+    },
+    card: {
+        borderRadius: 20,
+        padding: 20,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 3,
     },
     inputGroup: {
         flexDirection: 'row',
         alignItems: 'flex-start',
-        marginBottom: 10,
     },
     iconContainer: {
-        width: 40,
-        paddingTop: 15,
+        width: 30,
+        paddingTop: 12,
         alignItems: 'center',
     },
     textContainer: {
@@ -168,31 +224,31 @@ const styles = StyleSheet.create({
         marginLeft: 15,
     },
     label: {
-        fontSize: 14,
-        color: 'gray',
-        marginBottom: 5,
+        fontSize: 12,
+        color: '#888',
+        fontWeight: '600',
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+        marginBottom: 4,
     },
     input: {
-        fontSize: 18,
-        // color: Colors.dark.text, -> handled in render
+        fontSize: 16,
+        paddingVertical: 8,
         borderBottomWidth: 1,
-        borderBottomColor: 'transparent',
-        paddingVertical: 5,
     },
     readOnlyText: {
-        fontSize: 18,
-        // color: Colors.dark.text, -> handled in render
-        paddingVertical: 5,
+        fontSize: 16,
+        paddingVertical: 8,
     },
     hint: {
         fontSize: 12,
-        color: 'gray',
-        marginTop: 5,
+        color: '#999',
+        marginTop: 6,
+        lineHeight: 16,
     },
     separator: {
-        height: StyleSheet.hairlineWidth,
-        backgroundColor: 'rgba(255,255,255,0.1)',
-        marginLeft: 55, // Offset for icon
-        marginVertical: 15,
+        height: 1,
+        marginVertical: 20,
+        marginLeft: 45,
     }
 });

@@ -52,14 +52,15 @@ export const api = {
         updateProfile: async (token: string, data: any) => {
             const url = `${API_URL}/auth/profile/`;
             try {
-                log(`PATCH ${url}`, data);
+                const isFormData = data instanceof FormData;
+                log(`PATCH ${url}`, isFormData ? 'FormData' : data);
                 const response = await fetch(url, {
                     method: 'PATCH',
                     headers: {
                         'Authorization': `Token ${token}`,
-                        'Content-Type': 'application/json',
+                        ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
                     },
-                    body: JSON.stringify(data),
+                    body: isFormData ? data : JSON.stringify(data),
                 });
                 const json = await response.json();
                 log('Profile update response', { status: response.status, json });

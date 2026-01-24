@@ -7,6 +7,8 @@ import { useRouter } from 'expo-router';
 import { Alert, Image, ScrollView, StyleSheet, TouchableOpacity, Switch } from 'react-native';
 
 import { useAppTheme } from '@/hooks/useAppTheme';
+import { getMediaUrl } from '@/utils/media';
+
 
 export default function SettingsScreen() {
     const router = useRouter();
@@ -14,6 +16,7 @@ export default function SettingsScreen() {
     // Helper to access colors based on theme if needed, but 'colors' object is already correct
     const user = useStore((state) => state.user);
     const logout = useStore((state) => state.logout);
+    const showToast = useStore((state) => state.showToast);
 
     const handleLogout = () => {
         logout();
@@ -38,7 +41,7 @@ export default function SettingsScreen() {
                 {/* Profile Header */}
                 <TouchableOpacity style={styles.profileHeader} onPress={() => router.push('/settings/profile')}>
                     <Image
-                        source={user?.profile_picture ? { uri: user.profile_picture } : require('@/assets/images/default-avatar.png')}
+                        source={getMediaUrl(user?.profile_picture) ? { uri: getMediaUrl(user?.profile_picture)! } : require('@/assets/images/default-avatar.png')}
                         style={styles.avatar}
                     />
                     <View style={styles.profileInfo}>
@@ -51,8 +54,18 @@ export default function SettingsScreen() {
                 <View style={[styles.separator, { backgroundColor: colors.itemSeparator }]} />
 
                 {/* Settings List */}
-                <SettingItem icon="key" title="Account" subtitle="Security notifications, change number" />
-                <SettingItem icon="lock" title="Privacy" subtitle="Block contacts, disappearing messages" />
+                <SettingItem
+                    icon="key"
+                    title="Account"
+                    subtitle="Security notifications, change number"
+                    onPress={() => showToast('info', 'Account Settings', 'This feature is coming soon.')}
+                />
+                <SettingItem
+                    icon="lock"
+                    title="Privacy"
+                    subtitle="Block contacts, disappearing messages"
+                    onPress={() => showToast('info', 'Privacy Settings', 'This feature is coming soon.')}
+                />
                 <SettingItem
                     icon="paint-brush"
                     title="App Theme"
@@ -81,15 +94,44 @@ export default function SettingsScreen() {
                         thumbColor={'white'}
                     />
                 </View>
-                <SettingItem icon="comment" title="Chats" subtitle="Theme, wallpapers, chat history" />
-                <SettingItem icon="bell" title="Notifications" subtitle="Message, group & call tones" />
-                <SettingItem icon="hdd-o" title="Storage and data" subtitle="Network usage, auto-download" />
-                <SettingItem icon="globe" title="App language" subtitle="English (device's language)" />
-                <SettingItem icon="question-circle" title="Help" subtitle="Help center, contact us, privacy policy" />
+                <SettingItem
+                    icon="comment"
+                    title="Chats"
+                    subtitle="Theme, wallpapers, chat history"
+                    onPress={() => showToast('info', 'Chat Settings', 'This feature is coming soon.')}
+                />
+                <SettingItem
+                    icon="bell"
+                    title="Notifications"
+                    subtitle="Message, group & call tones"
+                    onPress={() => showToast('info', 'Notification Settings', 'This feature is coming soon.')}
+                />
+                <SettingItem
+                    icon="hdd-o"
+                    title="Storage and data"
+                    subtitle="Network usage, auto-download"
+                    onPress={() => showToast('info', 'Storage Settings', 'This feature is coming soon.')}
+                />
+                <SettingItem
+                    icon="globe"
+                    title="App language"
+                    subtitle="English (device's language)"
+                    onPress={() => showToast('info', 'App Language', 'This feature is coming soon.')}
+                />
+                <SettingItem
+                    icon="question-circle"
+                    title="Help"
+                    subtitle="Help center, contact us, privacy policy"
+                    onPress={() => showToast('info', 'Help & Support', 'This feature is coming soon.')}
+                />
 
                 <View style={[styles.separator, { backgroundColor: colors.itemSeparator }]} />
 
-                <SettingItem icon="users" title="Invite a friend" />
+                <SettingItem
+                    icon="users"
+                    title="Invite a friend"
+                    onPress={() => showToast('info', 'Invite Friends', 'This feature is coming soon.')}
+                />
 
                 <View style={[styles.separator, { backgroundColor: colors.itemSeparator }]} />
 

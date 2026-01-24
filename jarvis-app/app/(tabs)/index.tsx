@@ -10,6 +10,7 @@ import { useEffect, useState } from 'react';
 import { FlatList, Image, Pressable, StyleSheet, TextInput, TouchableOpacity, Alert, LayoutAnimation } from 'react-native';
 
 import { useAppTheme } from '@/hooks/useAppTheme';
+import { getMediaUrl } from '@/utils/media';
 
 export default function ChatsScreen() {
   const router = useRouter();
@@ -114,7 +115,10 @@ export default function ChatsScreen() {
               <FontAwesome name={isSelected ? "check-circle" : "circle-thin"} size={24} color={isSelected ? colors.primary : colors.text} />
             </View>
           )}
-          <Image source={item.avatar ? { uri: item.avatar } : require('@/assets/images/default-avatar.png')} style={styles.avatar} />
+          <Image
+            source={getMediaUrl(item.avatar) ? { uri: getMediaUrl(item.avatar)! } : require('@/assets/images/default-avatar.png')}
+            style={styles.avatar}
+          />
           <View style={styles.contentContainer}>
             <View style={styles.headerRow}>
               <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{item.name}</Text>

@@ -5,6 +5,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { Chat } from '@/types';
 import { useRouter } from 'expo-router';
+import { getMediaUrl } from '@/utils/media';
 
 interface ChatHeaderProps {
     chat: Chat;
@@ -15,6 +16,8 @@ interface ChatHeaderProps {
 export const ChatHeader = ({ chat, typingUser, onOptionsPress }: ChatHeaderProps) => {
     const { colors } = useAppTheme();
     const router = useRouter();
+
+    const avatarUrl = getMediaUrl(chat.avatar);
 
     return (
         <View
@@ -41,8 +44,8 @@ export const ChatHeader = ({ chat, typingUser, onOptionsPress }: ChatHeaderProps
             <TouchableOpacity style={styles.profileContainer} activeOpacity={0.7}>
                 <Image
                     source={
-                        chat.avatar
-                            ? { uri: chat.avatar }
+                        avatarUrl
+                            ? { uri: avatarUrl }
                             : require('@/assets/images/default-avatar.png')
                     }
                     style={styles.headerAvatar}

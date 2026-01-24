@@ -11,6 +11,8 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import Colors from '@/constants/Colors';
 import { useStore } from '@/store';
+import CustomToast from '@/components/CustomToast';
+
 
 
 export {
@@ -137,8 +139,10 @@ function RootLayoutNav() {
             <Stack.Screen name="auth/login" options={{ headerShown: false }} />
             <Stack.Screen name="auth/signup" options={{ headerShown: false }} />
           </Stack>
+          <CustomToast />
         </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }
+
