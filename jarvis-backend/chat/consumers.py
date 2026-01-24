@@ -56,6 +56,24 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         }
                     )
             return
+        
+        if message_type == 'mark_delivered':
+            message_id = text_data_json.get('message_id')
+            conversation_id = text_data_json.get('conversation_id')
+            if message_id:
+                sender_id = await self.mark_message_delivered(message_id)
+                if sender_id:
+                     # Notify the sender that their message was delivered
+                    sender_group_name = f"user_{sender_id}"
+                    await self.channel_layer.group_send(
+                        sender_group_name,
+                        {
+                            'type': 'message_delivered',
+                            'message_id': message_id,
+                            'conversation_id': conversation_id
+                        }
+                    )
+            return
 
         if text_data_json.get('type') == 'typing':
             print(f"[WS] Received typing event: {text_data_json}")
@@ -146,6 +164,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'conversation_id': event.get('conversation_id')
         }))
 
+    async def message_delivered(self, event):
+        # Notify user that their message was delivered
+        await self.send(text_data=json.dumps({
+            'type': 'message_delivered',
+            'message_id': event['message_id'],
+            'conversation_id': event.get('conversation_id')
+        }))
+
     @database_sync_to_async
     def update_user_status(self, is_online):
         from django.utils import timezone
@@ -161,6 +187,19 @@ class ChatConsumer(AsyncWebsocketConsumer):
             message = Message.objects.get(id=message_id)
             if not message.is_read:
                 message.is_read = True
+                message.save()
+                return message.sender.id
+            return None
+        except Message.DoesNotExist:
+            return None
+
+    @database_sync_to_async
+    def mark_message_delivered(self, message_id):
+        from .models import Message
+        try:
+            message = Message.objects.get(id=message_id)
+            if not message.is_delivered:
+                message.is_delivered = True
                 message.save()
                 return message.sender.id
             return None

@@ -156,6 +156,38 @@ export const api = {
                 log(`Create conversation error`, error);
                 throw error;
             }
+        },
+        deleteConversation: async (token: string, conversationId: string) => {
+            const url = `${API_URL}/chat/conversations/${conversationId}/`;
+            try {
+                log(`DELETE ${url}`);
+                const response = await fetch(url, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Token ${token}`,
+                        'Content-Type': 'application/json',
+                    },
+                });
+
+                if (response.status === 204) {
+                    log(`Conversation deleted`, { id: conversationId });
+                    return true;
+                }
+
+                const text = await response.text();
+                try {
+                    const json = JSON.parse(text);
+                    log(`Delete conversation response`, { status: response.status, json });
+                    if (!response.ok) throw new Error(JSON.stringify(json) || 'Failed to delete conversation');
+                    return json;
+                } catch (e) {
+                    log(`Delete conversation non-JSON response`, { status: response.status, text });
+                    throw new Error(`Server returned non-JSON response: ${response.status}`);
+                }
+            } catch (error) {
+                log(`Delete conversation error`, error);
+                throw error;
+            }
         }
     }
 };

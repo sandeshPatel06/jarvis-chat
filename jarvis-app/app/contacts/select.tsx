@@ -56,6 +56,17 @@ export default function SelectContactScreen() {
 
     const handleSelectContact = async (user: any) => {
         if (!token) return;
+
+        // Check for existing chat FIRST
+        // Note: This relies on `chats` being populated. It might be safer to ensure chats are fetched.
+        // However, fetchChats() is often called on mount of tabs.
+        const existingChat = useStore.getState().chats.find(chat => chat.name === user.username);
+
+        if (existingChat) {
+            router.replace(`/chat/${existingChat.id}`);
+            return;
+        }
+
         try {
             setLoading(true);
             const conversation = await api.chat.createConversation(token, user.username);

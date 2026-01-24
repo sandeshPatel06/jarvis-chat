@@ -1,19 +1,27 @@
+import { ScreenWrapper } from '@/components/ScreenWrapper';
 import { Text, View } from '@/components/Themed';
-import Colors from '@/constants/Colors';
+import { useAppTheme } from '@/hooks/useAppTheme';
 import { StyleSheet } from 'react-native';
 
 export default function PeopleScreen() {
+    const { colors } = useAppTheme();
+
     return (
-        <View style={styles.container}>
-            <Text style={styles.title}>Contacts</Text>
-            <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" />
-            <Text style={styles.subtitle}>Find people to chat with</Text>
-        </View>
+        <ScreenWrapper style={styles.container}>
+            <View style={styles.content}>
+                <Text style={[styles.title, { color: colors.text }]}>Contacts</Text>
+                <View style={[styles.separator, { backgroundColor: colors.itemSeparator }]} />
+                <Text style={[styles.subtitle, { color: colors.text, opacity: 0.6 }]}>Find people to chat with</Text>
+            </View>
+        </ScreenWrapper>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
+        flex: 1,
+    },
+    content: {
         flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
@@ -21,11 +29,9 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 24,
         fontWeight: 'bold',
-        color: Colors.dark.text,
     },
     subtitle: {
         fontSize: 16,
-        color: 'gray',
         marginTop: 10,
     },
     separator: {

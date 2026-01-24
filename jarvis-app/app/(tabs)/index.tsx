@@ -6,7 +6,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { FlatList, Image, Pressable, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
+import { FlatList, Image, Pressable, StyleSheet, TextInput, TouchableOpacity, Alert } from 'react-native';
 
 import { useAppTheme } from '@/hooks/useAppTheme';
 
@@ -15,9 +15,12 @@ export default function ChatsScreen() {
   const { colors } = useAppTheme();
   const chats = useStore((state) => state.chats);
   const fetchChats = useStore((state) => state.fetchChats);
+  const deleteChats = useStore((state) => state.deleteChats);
   const user = useStore((state) => state.user);
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedChats, setSelectedChats] = useState<Set<string>>(new Set());
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
 
   const filteredChats = chats.filter(chat =>
     chat.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -34,41 +37,96 @@ export default function ChatsScreen() {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
-  const renderItem = ({ item }: { item: Chat }) => (
-    <View style={{ backgroundColor: 'transparent' }}>
-      <Pressable
-        onPress={() => router.push(`/chat/${item.id}`)}
-        style={({ pressed }) => [
-          styles.itemContainer,
-          { opacity: pressed ? 0.7 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] }
-        ]}
-      >
-        <Image source={item.avatar ? { uri: item.avatar } : require('@/assets/images/default-avatar.png')} style={styles.avatar} />
-        <View style={styles.contentContainer}>
-          <View style={styles.headerRow}>
-            <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
-            <Text style={styles.time}>{formatTime(item.lastMessageTime)}</Text>
+  const handleLongPress = (chatId: string) => {
+    setIsSelectionMode(true);
+    setSelectedChats(new Set([chatId]));
+  };
+
+  const handlePress = (chatId: string) => {
+    if (isSelectionMode) {
+      const newSelected = new Set(selectedChats);
+      if (newSelected.has(chatId)) {
+        newSelected.delete(chatId);
+        if (newSelected.size === 0) {
+          setIsSelectionMode(false);
+        }
+      } else {
+        newSelected.add(chatId);
+      }
+      setSelectedChats(newSelected);
+    } else {
+      router.push(`/chat/${chatId}`);
+    }
+  };
+
+  const handleCancelSelection = () => {
+    setIsSelectionMode(false);
+    setSelectedChats(new Set());
+  };
+
+  const handleDeleteSelected = () => {
+    const ids = Array.from(selectedChats);
+    Alert.alert(
+      "Delete Chats",
+      `Are you sure you want to delete ${ids.length} chats?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete", style: "destructive", onPress: () => {
+            deleteChats(ids);
+            setIsSelectionMode(false);
+            setSelectedChats(new Set());
+          }
+        }
+      ]
+    );
+  };
+
+  const renderItem = ({ item }: { item: Chat }) => {
+    const isSelected = selectedChats.has(item.id);
+    return (
+      <View style={{ backgroundColor: isSelected ? colors.primary + '20' : 'transparent' }}>
+        <Pressable
+          onPress={() => handlePress(item.id)}
+          onLongPress={() => handleLongPress(item.id)}
+          delayLongPress={300}
+          style={({ pressed }) => [
+            styles.itemContainer,
+            { opacity: pressed ? 0.7 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] }
+          ]}
+        >
+          {isSelectionMode && (
+            <View style={{ marginRight: 10 }}>
+              <FontAwesome name={isSelected ? "check-circle" : "circle-thin"} size={24} color={isSelected ? colors.primary : colors.text} />
+            </View>
+          )}
+          <Image source={item.avatar ? { uri: item.avatar } : require('@/assets/images/default-avatar.png')} style={styles.avatar} />
+          <View style={styles.contentContainer}>
+            <View style={styles.headerRow}>
+              <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
+              <Text style={styles.time}>{formatTime(item.lastMessageTime)}</Text>
+            </View>
+            <View style={styles.messageRow}>
+              <Text numberOfLines={1} style={styles.message}>
+                {item.lastMessage}
+              </Text>
+              {item.unreadCount > 0 && (
+                <LinearGradient
+                  colors={[Colors.dark.primary, Colors.dark.secondary]}
+                  style={styles.unreadBadge}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <Text style={styles.unreadText}>{item.unreadCount}</Text>
+                </LinearGradient>
+              )}
+            </View>
           </View>
-          <View style={styles.messageRow}>
-            <Text numberOfLines={1} style={styles.message}>
-              {item.lastMessage}
-            </Text>
-            {item.unreadCount > 0 && (
-              <LinearGradient
-                colors={[Colors.dark.primary, Colors.dark.secondary]}
-                style={styles.unreadBadge}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
-                <Text style={styles.unreadText}>{item.unreadCount}</Text>
-              </LinearGradient>
-            )}
-          </View>
-        </View>
-      </Pressable>
-      <View style={styles.separator} />
-    </View>
-  );
+        </Pressable>
+        <View style={styles.separator} />
+      </View>
+    )
+  };
 
   const [isSearching, setIsSearching] = useState(false);
 
@@ -82,9 +140,19 @@ export default function ChatsScreen() {
   return (
     <ScreenWrapper style={styles.container}>
 
-      {/* Custom Header with Toggle Search */}
+      {/* Custom Header with Toggle Search or Selection Mode */}
       <View style={[styles.header, { borderBottomColor: colors.itemSeparator }]}>
-        {!isSearching ? (
+        {isSelectionMode ? (
+          <View style={styles.headerTitleContainer}>
+            <TouchableOpacity onPress={handleCancelSelection} style={styles.headerIcon}>
+              <FontAwesome name="times" size={24} color={colors.text} />
+            </TouchableOpacity>
+            <Text style={[styles.headerTitle, { color: colors.text, fontSize: 20 }]}>{selectedChats.size} Selected</Text>
+            <TouchableOpacity onPress={handleDeleteSelected} style={styles.headerIcon}>
+              <FontAwesome name="trash" size={24} color="red" />
+            </TouchableOpacity>
+          </View>
+        ) : !isSearching ? (
           <View style={styles.headerTitleContainer}>
             <Text style={[styles.headerTitle, { color: colors.text }]}>Chats</Text>
             <TouchableOpacity onPress={toggleSearch} style={styles.headerIcon}>
@@ -116,41 +184,7 @@ export default function ChatsScreen() {
       <FlatList
         data={filteredChats}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <View style={{ backgroundColor: 'transparent' }}>
-            <Pressable
-              onPress={() => router.push(`/chat/${item.id}`)}
-              style={({ pressed }) => [
-                styles.itemContainer,
-                { opacity: pressed ? 0.7 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] }
-              ]}
-            >
-              <Image source={item.avatar ? { uri: item.avatar } : require('@/assets/images/default-avatar.png')} style={[styles.avatar, { borderColor: colors.accent }]} />
-              <View style={styles.contentContainer}>
-                <View style={styles.headerRow}>
-                  <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{item.name}</Text>
-                  <Text style={[styles.time, { color: colors.text, opacity: 0.6 }]}>{formatTime(item.lastMessageTime)}</Text>
-                </View>
-                <View style={styles.messageRow}>
-                  <Text numberOfLines={1} style={[styles.message, { color: colors.text, opacity: 0.8 }]}>
-                    {item.lastMessage}
-                  </Text>
-                  {item.unreadCount > 0 && (
-                    <LinearGradient
-                      colors={[colors.primary, colors.secondary]}
-                      style={styles.unreadBadge}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                    >
-                      <Text style={styles.unreadText}>{item.unreadCount}</Text>
-                    </LinearGradient>
-                  )}
-                </View>
-              </View>
-            </Pressable>
-            <View style={[styles.separator, { backgroundColor: colors.itemSeparator }]} />
-          </View>
-        )}
+        renderItem={renderItem}
         contentContainerStyle={styles.listContent}
       />
 
@@ -174,7 +208,6 @@ export default function ChatsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.dark.background,
   },
   header: {
     height: 60,
@@ -219,7 +252,6 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     marginRight: 15,
     borderWidth: 2,
-    borderColor: Colors.dark.accent,
   },
   contentContainer: {
     flex: 1,
@@ -235,11 +267,9 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: Colors.dark.text,
   },
   time: {
     fontSize: 12,
-    color: 'gray',
   },
   messageRow: {
     flexDirection: 'row',
@@ -249,7 +279,6 @@ const styles = StyleSheet.create({
   },
   message: {
     fontSize: 14,
-    color: 'silver',
     flex: 1,
     marginRight: 10,
   },
@@ -257,19 +286,16 @@ const styles = StyleSheet.create({
     minWidth: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: Colors.dark.primary,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 6,
   },
   unreadText: {
-    color: 'white',
     fontSize: 12,
     fontWeight: 'bold',
   },
   separator: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     marginLeft: 90,
   },
   fab: {

@@ -9,6 +9,8 @@ export interface Message {
     sender: 'me' | 'them';
     timestamp: Date;
     isRead?: boolean;
+    isDelivered?: boolean;
+    reactions?: string[]; // Simplified for now
 }
 
 // ... Chat interface remains same
@@ -46,15 +48,22 @@ interface AppState {
     setUser: (user: User | null, token: string | null) => void;
     updateUser: (user: User) => void;
     sendMessage: (chatId: string, text: string) => void;
+    editMessage: (chatId: string, messageId: string, newText: string) => void; // New
+    deleteMessage: (chatId: string, messageId: string) => void; // New
+    reactToMessage: (chatId: string, messageId: string, reaction: string) => void; // New
     markRead: (chatId: string, messageId: string) => void;
+    markDelivered: (chatId: string, messageId: string) => void;
     updateMessageRead: (messageId: string, chatId?: string) => void;
+    updateMessageDelivered: (messageId: string, chatId?: string) => void;
+    deleteChat: (chatId: string) => Promise<void>; // New
+    deleteChats: (chatIds: string[]) => Promise<void>; // New
     logout: () => void;
     setChats: (chats: Chat[]) => void;
     addMessage: (message: any) => void;
     connectWebSocket: () => void;
     fetchChats: () => Promise<void>;
     fetchMessages: (chatId: string) => Promise<void>;
-    typingUsers: Record<string, string | null>; // chatId -> username of typer (or null)
+    typingUsers: Record<string, string | null>;
     setTyping: (chatId: string, username: string | null) => void;
     sendTyping: (chatId: string) => void;
     hasHydrated: boolean;
@@ -95,14 +104,100 @@ export const useStore = create<AppState>()(
                 set({ user: null, token: null, chats: [], socket: null });
             },
             sendMessage: (chatId, text) => {
-                // Send via WebSocket
-                const { socket, user } = get();
+                const { socket } = get();
                 if (socket && socket.readyState === WebSocket.OPEN) {
                     socket.send(JSON.stringify({
                         message: text,
                         conversation_id: chatId
                     }));
                 }
+            },
+            editMessage: (chatId, messageId, newText) => {
+                const { socket } = get();
+                // Optimistic update
+                set((state) => ({
+                    chats: state.chats.map((chat) => {
+                        if (chat.id === chatId) {
+                            const newMessages = chat.messages.map((msg) =>
+                                msg.id === messageId ? { ...msg, text: newText } : msg
+                            );
+                            return { ...chat, messages: newMessages, lastMessage: newMessages[newMessages.length - 1].text };
+                        }
+                        return chat;
+                    })
+                }));
+
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    socket.send(JSON.stringify({
+                        type: 'edit_message',
+                        message_id: messageId,
+                        conversation_id: chatId,
+                        new_text: newText
+                    }));
+                }
+            },
+            deleteMessage: (chatId, messageId) => {
+                const { socket } = get();
+                // Optimistic update
+                set((state) => ({
+                    chats: state.chats.map((chat) => {
+                        if (chat.id === chatId) {
+                            const newMessages = chat.messages.filter((msg) => msg.id !== messageId);
+                            const lastMsg = newMessages.length > 0 ? newMessages[newMessages.length - 1].text : '';
+                            return { ...chat, messages: newMessages, lastMessage: lastMsg };
+                        }
+                        return chat;
+                    })
+                }));
+
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    socket.send(JSON.stringify({
+                        type: 'delete_message',
+                        message_id: messageId,
+                        conversation_id: chatId
+                    }));
+                }
+            },
+            reactToMessage: (chatId, messageId, reaction) => {
+                const { socket } = get();
+                // We'll trust the server to echo this back for now, or could optimistic update if needed
+                // For simplicity, let's just send it. If we want optimistic:
+                /*
+                set((state) => ({
+                    chats: state.chats.map((chat) => {
+                        if (chat.id === chatId) {
+                             // ... logic to add reaction to message ...
+                        }
+                        return chat;
+                    })
+                }));
+                */
+
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    socket.send(JSON.stringify({
+                        type: 'react_message',
+                        message_id: messageId,
+                        conversation_id: chatId,
+                        reaction: reaction
+                    }));
+                }
+            },
+            deleteChat: async (chatId) => {
+                const { token } = get();
+                if (!token) return;
+                try {
+                    await api.chat.deleteConversation(token, chatId);
+                    set((state) => ({
+                        chats: state.chats.filter((c) => c.id !== chatId)
+                    }));
+                } catch (e) {
+                    console.error('Failed to delete chat', e);
+                }
+            },
+            deleteChats: async (chatIds) => {
+                const { deleteChat } = get();
+                // Parallel delete
+                await Promise.all(chatIds.map(id => deleteChat(id)));
             },
             markRead: (chatId, messageId) => {
                 const { socket } = get();
@@ -114,9 +209,18 @@ export const useStore = create<AppState>()(
                     }));
                 }
             },
+            markDelivered: (chatId, messageId) => {
+                const { socket } = get();
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    socket.send(JSON.stringify({
+                        type: 'mark_delivered',
+                        message_id: messageId,
+                        conversation_id: chatId
+                    }));
+                }
+            },
             updateMessageRead: (messageId, chatId) => set((state) => ({
                 chats: state.chats.map((chat) => {
-                    // If chatId is provided, only update that chat, otherwise scan all (less efficient but safe)
                     if (chatId && chat.id !== chatId) return chat;
 
                     const msgIndex = chat.messages.findIndex(m => m.id === messageId);
@@ -127,15 +231,27 @@ export const useStore = create<AppState>()(
                     return { ...chat, messages: newMessages };
                 })
             })),
+            updateMessageDelivered: (messageId, chatId) => set((state) => ({
+                chats: state.chats.map((chat) => {
+                    if (chatId && chat.id !== chatId) return chat;
+
+                    const msgIndex = chat.messages.findIndex(m => m.id === messageId);
+                    if (msgIndex === -1) return chat;
+
+                    const newMessages = [...chat.messages];
+                    newMessages[msgIndex] = { ...newMessages[msgIndex], isDelivered: true };
+                    return { ...chat, messages: newMessages };
+                })
+            })),
             setChats: (chats) => set({ chats }),
             addMessage: (message) => set((state) => ({
                 chats: state.chats.map((chat) =>
-                    chat.id === message.conversation?.toString() // Use optional chaining for safety
+                    chat.id === message.conversation?.toString()
                         ? {
                             ...chat,
                             messages: [...chat.messages, message],
                             lastMessage: message.text,
-                            lastMessageTime: new Date(message.timestamp) // Ensure date object
+                            lastMessageTime: new Date(message.timestamp)
                         }
                         : chat
                 )
@@ -165,29 +281,56 @@ export const useStore = create<AppState>()(
                             const { conversation_id, sender_username } = data;
                             get().setTyping(conversation_id, sender_username);
 
-                            // Auto-clear typing status after 3 seconds
                             setTimeout(() => {
                                 get().setTyping(conversation_id, null);
                             }, 3000);
                         } else if (data.type === 'message_read') {
                             const { message_id, conversation_id } = data;
                             get().updateMessageRead(message_id, conversation_id);
+                        } else if (data.type === 'message_delivered') {
+                            const { message_id, conversation_id } = data;
+                            get().updateMessageDelivered(message_id, conversation_id);
+                        } else if (data.type === 'message_edited') {
+                            const { message_id, conversation_id, new_text } = data;
+                            set((state) => ({
+                                chats: state.chats.map((chat) => {
+                                    if (chat.id === conversation_id) {
+                                        const newMessages = chat.messages.map((msg) =>
+                                            msg.id === message_id ? { ...msg, text: new_text } : msg
+                                        );
+                                        // Update last message if it was the last one
+                                        const lastMsg = newMessages[newMessages.length - 1];
+                                        return { ...chat, messages: newMessages, lastMessage: lastMsg ? lastMsg.text : '' };
+                                    }
+                                    return chat;
+                                })
+                            }));
+                        } else if (data.type === 'message_deleted') {
+                            const { message_id, conversation_id } = data;
+                            set((state) => ({
+                                chats: state.chats.map((chat) => {
+                                    if (chat.id === conversation_id) {
+                                        const newMessages = chat.messages.filter((msg) => msg.id !== message_id);
+                                        const lastMsg = newMessages.length > 0 ? newMessages[newMessages.length - 1].text : '';
+                                        return { ...chat, messages: newMessages, lastMessage: lastMsg };
+                                    }
+                                    return chat;
+                                })
+                            }));
                         } else if (data.message) {
                             const msg = data.message;
-                            // Ensure timestamp is a Date object
                             msg.timestamp = new Date(msg.timestamp);
-                            // Ensure isRead is mapped if backend sends it
                             msg.isRead = msg.is_read || false;
+                            msg.isDelivered = msg.is_delivered || false;
 
-                            // Normalize sender to 'me' | 'them'
                             const currentUser = get().user?.username;
                             const senderUsername = typeof msg.sender === 'object' ? msg.sender.username : msg.sender;
                             msg.sender = senderUsername === currentUser ? 'me' : 'them';
 
                             get().addMessage(msg);
 
-                            // Schedule Notification if 'them'
                             if (msg.sender === 'them') {
+                                get().markDelivered(msg.conversation_id, msg.id);
                                 try {
                                     const Notifications = require('expo-notifications');
                                     Notifications.scheduleNotificationAsync({
@@ -196,10 +339,9 @@ export const useStore = create<AppState>()(
                                             body: msg.text,
                                             data: { chatId: msg.conversation_id },
                                         },
-                                        trigger: null, // show immediately
+                                        trigger: null,
                                     });
                                 } catch (error) {
-                                    // Ignore notification errors in Expo Go
                                 }
                             }
                         }
@@ -224,18 +366,14 @@ export const useStore = create<AppState>()(
                 if (!token) return;
                 try {
                     const conversations = await api.chat.getConversations(token);
-                    // Transform backend models to frontend Chat models if necessary
-                    // Assuming backend returns list of conversations with participants
-                    // This mapping depends on exactly what your backend returns.
-                    // For now, mapping broadly:
                     const chats: Chat[] = conversations.map((c: any) => ({
                         id: c.id.toString(),
                         name: c.participants.filter((p: any) => p.username !== get().user?.username)[0]?.username || 'Unknown',
-                        avatar: c.participants.filter((p: any) => p.username !== get().user?.username)[0]?.profile_picture || null, // null will signal UI to use default
+                        avatar: c.participants.filter((p: any) => p.username !== get().user?.username)[0]?.profile_picture || null,
                         lastMessage: c.last_message?.text || '',
                         lastMessageTime: c.last_message ? new Date(c.last_message.timestamp) : new Date(),
-                        unreadCount: 0, // Backend needs to provide this or compute it
-                        messages: [] // Fetch on demand
+                        unreadCount: 0,
+                        messages: []
                     }));
                     set({ chats });
                 } catch (e) {
@@ -252,7 +390,8 @@ export const useStore = create<AppState>()(
                         text: m.text,
                         sender: m.sender.username === get().user?.username ? 'me' : 'them',
                         timestamp: new Date(m.timestamp),
-                        isRead: m.is_read
+                        isRead: m.is_read,
+                        isDelivered: m.is_delivered
                     }));
 
                     set((state) => ({

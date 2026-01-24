@@ -14,6 +14,19 @@ class Message(models.Model):
     text = models.TextField()
     timestamp = models.DateTimeField(auto_now_add=True)
     is_read = models.BooleanField(default=False)
+    is_delivered = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.sender.username}: {self.text[:20]}"
+
+class Reaction(models.Model):
+    message = models.ForeignKey(Message, related_name='reactions', on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='reactions', on_delete=models.CASCADE)
+    emoji = models.CharField(max_length=10)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('message', 'user')
+
+    def __str__(self):
+        return f"{self.user.username} reacted {self.emoji} to {self.message.id}"

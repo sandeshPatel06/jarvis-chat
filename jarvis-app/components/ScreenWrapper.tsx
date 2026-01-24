@@ -13,7 +13,7 @@ interface ScreenWrapperProps {
 export const ScreenWrapper: React.FC<ScreenWrapperProps> = ({
     children,
     style,
-    edges = ['top', 'left', 'right'], // Default edges
+    edges = ['left', 'right'], // Default edges - top and bottom handled by navigation
     backgroundColor
 }) => {
     const { colors } = useAppTheme();

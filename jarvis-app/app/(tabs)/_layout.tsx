@@ -2,9 +2,10 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Tabs } from 'expo-router';
 import React from 'react';
 import { Platform, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useClientOnlyValue } from '@/components/useClientOnlyValue';
-import Colors from '@/constants/Colors';
+import { useAppTheme } from '@/hooks/useAppTheme';
 
 // You can explore the built-in icon families and icons on the web at https://icons.expo.fyi/
 function TabBarIcon(props: {
@@ -15,20 +16,21 @@ function TabBarIcon(props: {
 }
 
 export default function TabLayout() {
+  const insets = useSafeAreaInsets();
+  const { colors } = useAppTheme();
+
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors.dark.tint,
-        tabBarInactiveTintColor: Colors.dark.tabIconDefault,
-        // Disable the static render of the header on web
-        // to prevent a hydration error in React Navigation v6.
+        tabBarActiveTintColor: colors.tint,
+        tabBarInactiveTintColor: colors.tabIconDefault,
         headerShown: useClientOnlyValue(false, true),
         tabBarStyle: {
-          backgroundColor: Colors.dark.background,
+          backgroundColor: colors.background,
           borderTopWidth: 0,
           elevation: 0,
-          height: Platform.OS === 'ios' ? 88 : 60,
-          paddingBottom: Platform.OS === 'ios' ? 28 : 8,
+          height: 60 + insets.bottom,
+          paddingBottom: insets.bottom,
           paddingTop: 8,
         },
         tabBarLabelStyle: {
@@ -37,13 +39,13 @@ export default function TabLayout() {
           fontWeight: '600',
         },
         headerStyle: {
-          backgroundColor: Colors.dark.background,
+          backgroundColor: colors.background,
           elevation: 0,
           shadowOpacity: 0,
           borderBottomWidth: 0,
         },
         headerTitleStyle: {
-          color: Colors.dark.text,
+          color: colors.text,
           fontFamily: 'SpaceMono',
           fontSize: 20,
         },
@@ -57,8 +59,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <TabBarIcon name="comments" color={color} />,
           headerRight: () => (
             <View style={{ flexDirection: 'row', marginRight: 15, gap: 20 }}>
-              <FontAwesome name="search" size={20} color={Colors.dark.text} />
-              <FontAwesome name="edit" size={20} color={Colors.dark.text} />
+              <FontAwesome name="edit" size={20} color={colors.text} />
             </View>
           ),
         }}
@@ -70,7 +71,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <TabBarIcon name="phone" color={color} />,
           headerRight: () => (
             <View style={{ flexDirection: 'row', marginRight: 15, gap: 20 }}>
-              <FontAwesome name="phone" size={20} color={Colors.dark.text} />
+              <FontAwesome name="phone" size={20} color={colors.text} />
             </View>
           ),
         }}
