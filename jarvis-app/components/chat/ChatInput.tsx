@@ -7,6 +7,7 @@ import { useAppTheme } from '@/hooks/useAppTheme';
 import { api } from '@/services/api';
 import { useStore } from '@/store';
 import { Message } from '@/types';
+import * as Haptics from 'expo-haptics';
 
 interface ChatInputProps {
     text: string;
@@ -185,7 +186,10 @@ export const ChatInput = ({
                 />
 
                 <TouchableOpacity
-                    onPress={selectedFile ? handleSendFile : handleSend}
+                    onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                        selectedFile ? handleSendFile() : handleSend();
+                    }}
                     disabled={!selectedFile && !text.trim()}
                     style={styles.sendButtonContainer}
                 >

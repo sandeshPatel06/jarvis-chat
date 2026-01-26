@@ -87,7 +87,7 @@ export default function ProfileScreen() {
 
 
     return (
-        <ScreenWrapper style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
+        <ScreenWrapper style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'left', 'right', 'bottom']}>
             <Stack.Screen options={{
                 headerShown: true,
                 title: "Edit Profile",

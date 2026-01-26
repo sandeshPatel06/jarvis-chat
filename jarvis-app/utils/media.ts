@@ -1,5 +1,5 @@
 import { Directory, File, Paths } from 'expo-file-system';
-import * as FileSystem from 'expo-file-system/legacy';
+import * as FileSystem from 'expo-file-system'; // Use root for downloadAsync
 
 const MEDIA_URL = process.env.EXPO_PUBLIC_MEDIA_URL;
 

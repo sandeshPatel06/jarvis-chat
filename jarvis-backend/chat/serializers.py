@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Conversation, Message, Reaction
+from .models import Conversation, Message, Reaction, Call
 from accounts.serializers import UserSerializer
 
 class ReactionSerializer(serializers.ModelSerializer):
@@ -48,3 +48,11 @@ class ConversationSerializer(serializers.ModelSerializer):
     def get_unread_count(self, obj):
         user = self.context['request'].user
         return obj.messages.exclude(sender=user).filter(is_read=False).count()
+
+class CallSerializer(serializers.ModelSerializer):
+    caller = UserSerializer(read_only=True)
+    receiver = UserSerializer(read_only=True)
+    
+    class Meta:
+        model = Call
+        fields = ['id', 'caller', 'receiver', 'started_at', 'ended_at', 'status', 'is_video']

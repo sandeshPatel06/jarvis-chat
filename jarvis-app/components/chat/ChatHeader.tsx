@@ -4,6 +4,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { Chat } from '@/types';
+import { useStore } from '@/store';
 import { useRouter } from 'expo-router';
 import { getMediaUrl } from '@/utils/media';
 
@@ -16,6 +17,17 @@ interface ChatHeaderProps {
 export const ChatHeader = ({ chat, typingUser, onOptionsPress }: ChatHeaderProps) => {
     const { colors } = useAppTheme();
     const router = useRouter();
+    const startCall = useStore((state) => state.startCall);
+
+    const handleVideoCall = () => {
+        startCall(chat.id, true);
+        router.push(`/call/${chat.id}`);
+    };
+
+    const handleAudioCall = () => {
+        startCall(chat.id, false);
+        router.push(`/call/${chat.id}`);
+    };
 
     const avatarUrl = getMediaUrl(chat.avatar);
 
@@ -76,11 +88,11 @@ export const ChatHeader = ({ chat, typingUser, onOptionsPress }: ChatHeaderProps
 
             <View style={{ flex: 1 }} />
 
-            <TouchableOpacity onPress={onOptionsPress} style={styles.actionButton}>
+            <TouchableOpacity onPress={handleAudioCall} style={styles.actionButton}>
                 <MaterialCommunityIcons name="phone" size={24} color={colors.primary} />
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={onOptionsPress} style={[styles.actionButton, { marginRight: 5 }]}>
+            <TouchableOpacity onPress={handleVideoCall} style={[styles.actionButton, { marginRight: 5 }]}>
                 <MaterialCommunityIcons name="video" size={24} color={colors.primary} />
             </TouchableOpacity>
 

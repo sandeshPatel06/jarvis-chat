@@ -71,6 +71,23 @@ export const api = {
                 throw error;
             }
         },
+        deleteAccount: async (token: string) => {
+            const url = `${API_URL}/auth/profile/`;
+            try {
+                log(`DELETE ${url}`);
+                const response = await fetch(url, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Token ${token}` },
+                });
+                if (response.status === 204) return true;
+                const json = await response.json();
+                if (!response.ok) throw new Error(JSON.stringify(json) || 'Delete failed');
+                return json;
+            } catch (error) {
+                log('Delete account error', error);
+                throw error;
+            }
+        },
     },
     chat: {
         getConversations: async (token: string) => {
@@ -240,6 +257,50 @@ export const api = {
             } catch (error) {
                 log('Upload error', error);
                 throw error;
+            }
+        },
+        getCalls: async (token: string) => {
+            const url = `${API_URL}/chat/calls/`;
+            try {
+                log(`GET ${url}`);
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Token ${token}`,
+                        'Content-Type': 'application/json',
+                    },
+                });
+                const json = await response.json();
+                log(`Calls fetched from ${url}`, { count: json.length });
+                if (!response.ok) throw new Error('Failed to fetch calls');
+                return json;
+            } catch (error) {
+                log(`Fetch calls error from ${url}`, error);
+                console.error(error);
+                return [];
+            }
+        },
+        logCall: async (token: string, data: any) => {
+            const url = `${API_URL}/chat/calls/`;
+            try {
+                log(`POST ${url}`, data);
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Token ${token}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data),
+                });
+                const json = await response.json();
+                log('Log call response', { status: response.status, json });
+                if (!response.ok) throw new Error(JSON.stringify(json) || 'Log call failed');
+                return json;
+            } catch (error) {
+                log('Log call error', error);
+                // Don't throw, just log error to avoid disrupting UX
+                console.error(error);
+                return null;
             }
         }
     }

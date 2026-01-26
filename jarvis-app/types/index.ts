@@ -5,6 +5,18 @@ export interface User {
     phone_number?: string;
     profile_picture?: string;
     bio?: string;
+    privacy_last_seen?: 'everyone' | 'contacts' | 'nobody';
+    privacy_profile_photo?: 'everyone' | 'contacts' | 'nobody';
+    privacy_read_receipts?: boolean;
+    privacy_disappearing_messages_timer?: number;
+    notifications_enabled?: boolean;
+    notifications_sound?: boolean;
+    notifications_groups_enabled?: boolean;
+    security_notifications_enabled?: boolean;
+    two_step_verification_enabled?: boolean;
+    storage_auto_download_media?: boolean;
+    chat_wallpaper?: string;
+    app_language?: string;
 }
 
 export interface Message {
@@ -36,4 +48,14 @@ export interface Chat {
     messages: Message[];
     status?: string;
     hasMore?: boolean; // New
+}
+
+export interface Call {
+    id: number;
+    caller: User;
+    receiver: User;
+    started_at: string;
+    ended_at: string | null;
+    status: 'ongoing' | 'completed' | 'missed' | 'rejected';
+    is_video: boolean;
 }

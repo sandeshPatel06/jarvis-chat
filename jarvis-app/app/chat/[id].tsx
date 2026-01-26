@@ -8,17 +8,16 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
     FlatList,
     Keyboard,
-    KeyboardAvoidingView,
     Platform,
     StyleSheet,
     TouchableOpacity,
     Modal,
-    Alert,
     Pressable,
     Text,
     LayoutAnimation,
     TextInput
 } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenWrapper } from '@/components/ScreenWrapper';
 import { ChatHeader, ChatInput, MessageItem, ForwardMessageModal } from '@/components/chat';
@@ -43,6 +42,7 @@ export default function ChatDetailScreen() {
     const reactToMessage = useStore((state) => state.reactToMessage);
     const deleteChat = useStore((state) => state.deleteChat);
     const forwardMessage = useStore((state) => state.forwardMessage);
+    const showAlert = useStore((state) => state.showAlert);
 
     const [text, setText] = useState('');
     const [keyboardVisible, setKeyboardVisible] = useState(false);
@@ -188,7 +188,7 @@ export default function ChatDetailScreen() {
                 setModalVisible(false);
                 setSelectedMessage(null);
             } else {
-                Alert.alert("Time Limit Exceeded", "You can only edit messages sent within the last 30 minutes.");
+                showAlert("Time Limit Exceeded", "You can only edit messages sent within the last 30 minutes.");
             }
         }
     };
@@ -200,7 +200,7 @@ export default function ChatDetailScreen() {
             const diffMins = (now.getTime() - msgTime.getTime()) / 60000;
 
             if (diffMins <= 60) {
-                Alert.alert(
+                showAlert(
                     "Delete Message",
                     "Are you sure you want to delete this message?",
                     [
@@ -217,13 +217,13 @@ export default function ChatDetailScreen() {
                     ]
                 );
             } else {
-                Alert.alert("Time Limit Exceeded", "You can only delete messages sent within the last 1 hour.");
+                showAlert("Time Limit Exceeded", "You can only delete messages sent within the last 1 hour.");
             }
         }
     };
 
     const handleDeleteChat = () => {
-        Alert.alert(
+        showAlert(
             "Delete Chat",
             "Are you sure you want to delete this conversation? This cannot be undone.",
             [

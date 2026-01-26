@@ -4,14 +4,56 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import { api } from './services/api';
 import NetInfo from '@react-native-community/netinfo';
 import * as database from './services/database';
-import { User, Message, Chat } from '@/types';
+import { User, Message, Chat, Call } from '@/types';
 import { getMediaUrl, downloadMedia } from './utils/media';
+import { webrtcService } from './services/webrtc';
+import { MediaStream } from 'react-native-webrtc';
+import * as SecureStore from 'expo-secure-store';
+import * as KeepAwake from 'expo-keep-awake';
+import * as Haptics from 'expo-haptics';
+import * as Audio from 'expo-audio';
+import * as ImagePicker from 'expo-image-picker';
+
+// Custom storage wrapper for Zustand to use SecureStore for sensitive data
+const secureStorage = {
+    getItem: async (name: string): Promise<string | null> => {
+        return await SecureStore.getItemAsync(name);
+    },
+    setItem: async (name: string, value: string): Promise<void> => {
+        await SecureStore.setItemAsync(name, value);
+    },
+    removeItem: async (name: string): Promise<void> => {
+        await SecureStore.deleteItemAsync(name);
+    },
+};
 
 interface Toast {
     type: 'success' | 'error' | 'info';
     text1: string;
     text2?: string;
     id: number;
+}
+
+export interface AlertButton {
+    text: string;
+    onPress?: () => void;
+    style?: 'default' | 'cancel' | 'destructive';
+}
+
+export interface AlertState {
+    title: string;
+    message: string;
+    buttons?: AlertButton[];
+}
+
+
+interface CallState {
+    isCalling: boolean;
+    incomingCall: { chatId: string, offer: any, isVideo: boolean } | null;
+    remoteStream: MediaStream | null;
+    localStream: MediaStream | null;
+    activeChatId: string | null;
+    bufferedCandidates: any[];
 }
 
 
@@ -21,6 +63,7 @@ interface AppState {
     theme: 'system' | 'light' | 'dark';
     setTheme: (theme: 'system' | 'light' | 'dark') => void; // Fix missing
     chats: Chat[];
+    calls: Call[];
     socket: WebSocket | null;
     setUser: (user: User | null, token: string | null) => void;
     updateUser: (user: User) => void;
@@ -40,6 +83,7 @@ interface AppState {
     addMessage: (message: any) => void;
     connectWebSocket: () => void;
     fetchChats: () => Promise<void>;
+    fetchCalls: () => Promise<void>;
     fetchMessages: (chatId: string) => Promise<void>;
     loadMoreMessages: (chatId: string) => Promise<void>; // New
     typingUsers: Record<string, string | null>;
@@ -56,7 +100,65 @@ interface AppState {
     toast: Toast | null;
     showToast: (type: 'success' | 'error' | 'info', text1: string, text2?: string) => void;
     hideToast: () => void;
+    updateSettings: (settings: Partial<User>) => Promise<void>;
+    deleteAccount: () => Promise<void>;
+    alert: AlertState | null;
+    showAlert: (title: string, message: string, buttons?: AlertButton[]) => void;
+    hideAlert: () => void;
+
+    // Call Actions
+    callState: CallState;
+    startCall: (chatId: string, isVideo?: boolean) => Promise<void>;
+    endCall: () => void;
+    acceptCall: () => Promise<void>;
+    handleSignalingMessage: (message: any) => Promise<void>;
 }
+
+
+
+let callSound: any = null;
+
+const playRingtone = async (isIncoming: boolean) => {
+    try {
+        // Configure audio session for VoIP-like behavior
+        await Audio.setAudioModeAsync({
+            playsInSilentMode: true,
+            interruptionMode: 'duckOthers',
+            allowsRecording: false,
+            shouldRouteThroughEarpiece: false,
+        });
+
+        // Stop any existing sound
+        if (callSound) {
+            callSound.pause();
+            callSound = null;
+        }
+
+        const source = isIncoming
+            ? 'https://assets.mixkit.co/active_storage/sfx/1359/1359-preview.mp3' // Classic phone ring
+            : 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'; // Dial tone
+
+        const player = Audio.createAudioPlayer(source);
+        player.loop = true;
+        player.play();
+        callSound = player;
+    } catch (e) {
+        console.log('Error playing ringtone', e);
+    }
+};
+
+const stopRingtone = async () => {
+    try {
+        if (callSound) {
+            callSound.pause();
+            callSound = null;
+        }
+    } catch (e) {
+        console.log('Error stopping ringtone', e);
+    }
+};
+
+
 
 
 const mockChats: Chat[] = [];
@@ -72,6 +174,7 @@ export const useStore = create<AppState>()(
                 token: null,
                 theme: 'system',
                 chats: [],
+                calls: [],
                 socket: null,
                 typingUsers: {},
                 setTyping: (chatId, username) => set((state) => ({
@@ -94,9 +197,358 @@ export const useStore = create<AppState>()(
                 logout: () => {
                     const { socket } = get();
                     if (socket) socket.close();
-                    set({ user: null, token: null, chats: [], socket: null, activeChatId: null });
+                    set({ user: null, token: null, chats: [], calls: [], socket: null, activeChatId: null });
                 },
                 activeChatId: null,
+                alert: null,
+                showAlert: (title, message, buttons) => set({ alert: { title, message, buttons } }),
+                hideAlert: () => set({ alert: null }),
+
+                callState: {
+                    isCalling: false,
+                    incomingCall: null,
+                    remoteStream: null,
+                    localStream: null,
+                    activeChatId: null,
+                    bufferedCandidates: [],
+                },
+
+                startCall: async (chatId, isVideo = true) => {
+                    // Set calling state immediately for responsive UI
+                    set((state) => ({
+                        callState: { ...state.callState, isCalling: true, activeChatId: chatId }
+                    }));
+
+                    try {
+                        // Request permissions
+                        const audioStatus = await Audio.requestRecordingPermissionsAsync();
+                        const cameraStatus = await ImagePicker.requestCameraPermissionsAsync();
+
+                        if (audioStatus.status !== 'granted' || (isVideo && cameraStatus.status !== 'granted')) {
+                            get().showAlert('Permission Required', 'Camera and Microphone permissions are needed for calls.');
+                            get().endCall(); // Revert state
+                            return;
+                        }
+
+                        // Activate KeepAwake for the duration of the call
+                        KeepAwake.activateKeepAwakeAsync();
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+                        // Play dialing sound
+                        playRingtone(false);
+
+                        // Configure audio for voice call (recording allowed)
+                        await Audio.setAudioModeAsync({
+                            playsInSilentMode: true,
+                            allowsRecording: true,
+                            interruptionMode: 'doNotMix',
+                            shouldRouteThroughEarpiece: false,
+                            shouldPlayInBackground: true,
+                        });
+
+                        const stream = await webrtcService.startLocalStream(isVideo);
+                        set((state) => ({
+                            callState: { ...state.callState, localStream: stream }
+                        }));
+
+                        // Create peer connection AFTER we have the local stream
+                        webrtcService.createPeerConnection();
+
+                        webrtcService.onRemoteStream = (stream) => {
+                            console.log('[Store] Remote stream received, updating state');
+                            set((state) => ({
+                                callState: { ...state.callState, remoteStream: stream }
+                            }));
+                        };
+
+                        webrtcService.onIceCandidate = (candidate) => {
+                            const socket = get().socket;
+                            if (socket) {
+                                socket.send(JSON.stringify({
+                                    type: 'webrtc_ice_candidate',
+                                    chat_id: chatId,
+                                    candidate: candidate
+                                }));
+                            }
+                        };
+
+                        webrtcService.onIceRestart = (offer) => {
+                            console.log('[Store] ICE restart, sending new offer to remote peer');
+                            const socket = get().socket;
+                            if (socket) {
+                                socket.send(JSON.stringify({
+                                    type: 'webrtc_offer',
+                                    chat_id: chatId,
+                                    offer: offer
+                                }));
+                            }
+                        };
+
+                        const offer = await webrtcService.createOffer();
+
+                        const socket = get().socket;
+                        if (socket) {
+                            socket.send(JSON.stringify({
+                                type: 'webrtc_offer',
+                                chat_id: chatId,
+                                offer: offer,
+                                is_video: isVideo
+                            }));
+                        }
+
+                    } catch (error) {
+                        console.error('Start call error:', error);
+                        get().endCall();
+                        get().showAlert('Error', 'Failed to start call');
+                    }
+                },
+
+                endCall: () => {
+                    const { callState, token, user, chats, socket } = get();
+                    stopRingtone(); // Stop sound
+                    const { activeChatId, isCalling, incomingCall } = callState;
+
+                    // Notify peer that call is ended/declined
+                    const targetChatId = activeChatId || incomingCall?.chatId;
+                    if (targetChatId && socket && socket.readyState === WebSocket.OPEN) {
+                        console.log('[Store] Sending call_ended signal to peer:', targetChatId);
+                        socket.send(JSON.stringify({
+                            type: 'call_ended',
+                            chat_id: targetChatId
+                        }));
+                    }
+
+                    if (isCalling && activeChatId && token && user) {
+                        const chat = chats.find(c => c.id === activeChatId);
+                        if (chat) {
+                            // Log the call
+                            // status: ongoing is default, but here we assume it was completed if ended manually
+                            // ideally we track start time in state but for now current time is fine
+                            api.chat.logCall(token, {
+                                receiver_username: chat.name, // Assuming chat name is username for 1-1
+                                status: 'completed',
+                                is_video: true
+                            }).then(() => get().fetchCalls());
+                        }
+                    }
+
+                    webrtcService.endCall();
+                    KeepAwake.deactivateKeepAwake(); // Deactivate KeepAwake when call ends
+                    set((state) => ({
+                        callState: {
+                            isCalling: false,
+                            incomingCall: null,
+                            remoteStream: null,
+                            localStream: null,
+                            activeChatId: null,
+                            bufferedCandidates: []
+                        }
+                    }));
+                },
+
+                acceptCall: async () => {
+                    const { incomingCall } = get().callState;
+                    if (!incomingCall) return;
+
+                    stopRingtone(); // Stop incoming call ring
+                    try {
+                        set((state) => ({
+                            callState: { ...state.callState, isCalling: true, activeChatId: incomingCall.chatId, incomingCall: null }
+                        }));
+
+                        // Request permissions for answering too
+                        const audioStatus = await Audio.requestRecordingPermissionsAsync();
+                        const cameraStatus = await ImagePicker.requestCameraPermissionsAsync();
+
+                        if (audioStatus.status !== 'granted' || cameraStatus.status !== 'granted') {
+                            get().showAlert('Permission Required', 'Permissions needed to answer call.');
+                            return;
+                        }
+
+                        // Activate KeepAwake for calls
+                        KeepAwake.activateKeepAwakeAsync();
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+
+                        stopRingtone(); // Stop incoming ringtone
+
+                        // Configure audio for voice call (recording allowed)
+                        await Audio.setAudioModeAsync({
+                            playsInSilentMode: true,
+                            allowsRecording: true, // Crucial for WebRTC to pick up mic
+                            interruptionMode: 'doNotMix',
+                            shouldRouteThroughEarpiece: false,
+                            shouldPlayInBackground: true,
+                        });
+
+                        const stream = await webrtcService.startLocalStream(true); // Default video for now
+                        set((state) => ({
+                            callState: { ...state.callState, localStream: stream }
+                        }));
+
+                        // Create peer connection AFTER we have the local stream
+                        webrtcService.createPeerConnection();
+
+                        webrtcService.onRemoteStream = (stream) => {
+                            console.log('[Store] Remote stream received in acceptCall, updating state');
+                            set((state) => ({
+                                callState: { ...state.callState, remoteStream: stream }
+                            }));
+                        };
+
+                        webrtcService.onIceCandidate = (candidate) => {
+                            const socket = get().socket;
+                            if (socket) {
+                                socket.send(JSON.stringify({
+                                    type: 'webrtc_ice_candidate',
+                                    chat_id: incomingCall.chatId,
+                                    candidate: candidate
+                                }));
+                            }
+                        };
+
+                        webrtcService.onIceRestart = (offer) => {
+                            console.log('[Store] ICE restart in acceptCall, sending new offer to remote peer');
+                            const socket = get().socket;
+                            if (socket) {
+                                socket.send(JSON.stringify({
+                                    type: 'webrtc_offer',
+                                    chat_id: incomingCall.chatId,
+                                    offer: offer
+                                }));
+                            }
+                        };
+
+                        await webrtcService.setRemoteDescription(incomingCall.offer);
+
+                        // Process buffered candidates
+                        const { bufferedCandidates } = get().callState;
+                        if (bufferedCandidates.length > 0) {
+                            console.log(`[Store] Processing ${bufferedCandidates.length} buffered ICE candidates`);
+                            for (const candidate of bufferedCandidates) {
+                                await webrtcService.addIceCandidate(candidate);
+                            }
+                        }
+
+                        const answer = await webrtcService.createAnswer();
+
+                        const socket = get().socket;
+                        if (socket) {
+                            socket.send(JSON.stringify({
+                                type: 'webrtc_answer',
+                                chat_id: incomingCall.chatId,
+                                answer: answer
+                            }));
+                        }
+                    } catch (error) {
+                        console.error('Accept call error', error);
+                        get().endCall();
+                    }
+                },
+
+                handleSignalingMessage: async (message: any) => {
+                    const { type, payload } = message;
+
+                    if (message.type === 'webrtc_offer') {
+                        console.log('[Signaling] Offer received');
+                        const state = get().callState;
+                        const currentUser = get().user?.username;
+
+                        // Polite peer logic to handle signaling glare
+                        // If we are calling or receiving a call, and we get another offer
+                        const isGlaring = state.isCalling || state.incomingCall;
+                        const isRenegotiation = state.isCalling && state.activeChatId === message.chat_id;
+
+                        if (isGlaring && !isRenegotiation) {
+                            // "Polite" peer logic: The peer with the lexicographically smaller username yields.
+                            // We need to know the remote username. For simple 1-1, it's often payload.sender?
+                            // But usually we can infer it from the chat_id or the message itself if it has a sender field.
+                            // Assuming we can get the remote username from the chats state.
+                            const chat = get().chats.find(c => c.id === message.chat_id);
+                            const remoteUsername = chat?.name;
+
+                            if (currentUser && remoteUsername) {
+                                const isPolite = currentUser < remoteUsername;
+                                if (!isPolite) {
+                                    console.log('[Signaling] Glare detected, we are impolite, ignoring incoming offer');
+                                    return;
+                                }
+                                console.log('[Signaling] Glare detected, we are polite, rolling back and accepting new offer');
+                                // Rollback: Cleanup current signaling state but keep isCalling true?
+                                // Actually, it's better to just end the current attempt and start fresh with the incoming offer.
+                                stopRingtone();
+                                webrtcService.endCall();
+                            }
+                        }
+
+                        if (isRenegotiation) {
+                            console.log('[Signaling] Renegotiation offer received (likely ICE restart)');
+                            await webrtcService.setRemoteDescription(message.offer);
+                            const answer = await webrtcService.createAnswer();
+                            const socket = get().socket;
+                            if (socket) {
+                                socket.send(JSON.stringify({
+                                    type: 'webrtc_answer',
+                                    chat_id: message.chat_id,
+                                    answer: answer
+                                }));
+                            }
+                            return;
+                        }
+
+                        get().showToast('info', 'Incoming Call', 'Receiving WebRTC Offer');
+                        playRingtone(true); // Play incoming ringtone
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); // Subtle buzz for incoming
+
+                        set((state) => ({
+                            callState: {
+                                ...state.callState,
+                                incomingCall: {
+                                    chatId: message.chat_id,
+                                    offer: message.offer,
+                                    isVideo: !!message.is_video
+                                }
+                            }
+                        }));
+                    } else if (message.type === 'webrtc_answer') {
+                        console.log('[Signaling] Answer received');
+                        get().showToast('success', 'Call Connected', 'Remote answered');
+                        stopRingtone(); // Stop dialing sound
+                        await webrtcService.setRemoteDescription(message.answer);
+                    } else if (message.type === 'webrtc_ice_candidate') {
+                        console.log('[Signaling] ICE Candidate received');
+                        const pc = webrtcService.peerConnection;
+                        if (pc && pc.remoteDescription) {
+                            await webrtcService.addIceCandidate(message.candidate);
+                        } else {
+                            console.log('[Signaling] Buffering ICE candidate (PC or RemoteDesc not ready)');
+                            set((state) => ({
+                                callState: {
+                                    ...state.callState,
+                                    bufferedCandidates: [...state.callState.bufferedCandidates, message.candidate]
+                                }
+                            }));
+                        }
+                    } else if (message.type === 'call_ended') {
+                        console.log('[Signaling] Call ended by peer');
+                        get().showToast('info', 'Call Ended', 'The other person ended the call');
+                        const { callState } = get();
+                        if (callState.activeChatId === message.chat_id || callState.incomingCall?.chatId === message.chat_id) {
+                            webrtcService.endCall(); // Cleanup WebRTC
+                            stopRingtone();
+                            set((state) => ({
+                                callState: {
+                                    isCalling: false,
+                                    incomingCall: null,
+                                    remoteStream: null,
+                                    localStream: null,
+                                    activeChatId: null,
+                                    bufferedCandidates: []
+                                }
+                            }));
+                        }
+                    }
+                },
+
                 setActiveChat: (chatId) => {
                     set((state) => ({
                         activeChatId: chatId,
@@ -146,6 +598,8 @@ export const useStore = create<AppState>()(
                         get().addMessage({ ...newMessage, conversation_id: chatId });
                         await database.saveMessage(newMessage, chatId, true);
                     }
+                    // Add haptic feedback for local message sending
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 },
                 sendFileMessage: async (chatId, file, text = '', replyToId) => {
                     const { token, user } = get();
@@ -317,6 +771,30 @@ export const useStore = create<AppState>()(
                 toast: null,
                 showToast: (type, text1, text2) => set({ toast: { type, text1, text2, id: Date.now() } }),
                 hideToast: () => set({ toast: null }),
+                updateSettings: async (settings) => {
+                    const { token, user } = get();
+                    if (!token || !user) return;
+                    try {
+                        const updatedUser = await api.auth.updateProfile(token, settings);
+                        set({ user: updatedUser });
+                    } catch (e) {
+                        console.error('Update settings failed', e);
+                        get().showToast('error', 'Update Failed', 'Could not save your settings.');
+                        throw e;
+                    }
+                },
+                deleteAccount: async () => {
+                    const { token, logout } = get();
+                    if (!token) return;
+                    try {
+                        await api.auth.deleteAccount(token);
+                        logout();
+                    } catch (e) {
+                        console.error('Delete account failed', e);
+                        get().showToast('error', 'Action Failed', 'Could not delete your account.');
+                        throw e;
+                    }
+                },
 
                 markRead: (chatId, messageId) => {
                     const { socket } = get();
@@ -406,7 +884,7 @@ export const useStore = create<AppState>()(
                     };
 
                     ws.onmessage = async (e) => {
-                        console.log('[WS] Message received:', e.data);
+                        console.log('[WS] 📥 Message received:', e.data); // Verbose log
                         try {
                             const data = JSON.parse(e.data);
                             if (data.type === 'user_typing') {
@@ -416,6 +894,8 @@ export const useStore = create<AppState>()(
                                 setTimeout(() => {
                                     get().setTyping(conversation_id, null);
                                 }, 3000);
+                            } else if (data.type === 'webrtc_offer' || data.type === 'webrtc_answer' || data.type === 'webrtc_ice_candidate' || data.type === 'call_ended') {
+                                await get().handleSignalingMessage(data);
                             } else if (data.type === 'message_read') {
                                 const { message_id, conversation_id } = data;
                                 get().updateMessageRead(message_id, conversation_id);
@@ -618,6 +1098,16 @@ export const useStore = create<AppState>()(
                     };
 
                     set({ socket: ws });
+                },
+                fetchCalls: async () => {
+                    const { token } = get();
+                    if (!token) return;
+                    try {
+                        const calls = await api.chat.getCalls(token);
+                        set({ calls: calls });
+                    } catch (e) {
+                        console.error('Fetch calls failed', e);
+                    }
                 },
                 fetchChats: async () => {
                     const { token } = get();
@@ -856,8 +1346,8 @@ export const useStore = create<AppState>()(
             };
         },
         {
-            name: 'jarvis-storage',
-            storage: createJSONStorage(() => AsyncStorage),
+            name: 'jarvis-secure-storage',
+            storage: createJSONStorage(() => secureStorage as any),
             partialize: (state) => ({ user: state.user, token: state.token }),
             onRehydrateStorage: () => (state) => {
                 state?.setHydrated(true);

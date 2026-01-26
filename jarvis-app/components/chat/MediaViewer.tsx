@@ -1,8 +1,10 @@
 import React from 'react';
 import { Modal, View, StyleSheet, TouchableOpacity, Image, Dimensions, StatusBar, Text, Linking } from 'react-native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { Video, ResizeMode } from 'expo-av';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { WebView } from 'react-native-webview';
+import * as Sharing from 'expo-sharing';
+import * as ScreenOrientation from 'expo-screen-orientation';
 
 interface MediaViewerProps {
     visible: boolean;
@@ -15,17 +17,50 @@ interface MediaViewerProps {
 const { width, height } = Dimensions.get('window');
 
 export const MediaViewer: React.FC<MediaViewerProps> = ({ visible, mediaUri, mediaType, fileName, onClose }) => {
-    const videoRef = React.useRef<Video>(null);
+    const player = useVideoPlayer(mediaUri || '', (p) => {
+        p.loop = false;
+        if (visible && mediaType === 'video') {
+            p.play();
+        }
+    });
 
     React.useEffect(() => {
-        if (!visible && videoRef.current) {
-            videoRef.current.pauseAsync();
+        if (!visible) {
+            player.pause();
+            // Reset orientation when closing
+            ScreenOrientation.unlockAsync().catch(console.error);
+        } else {
+            if (mediaType === 'video' || mediaType === 'image') {
+                // Allow rotation for images and videos
+                ScreenOrientation.unlockAsync().catch(console.error);
+            } else {
+                // Lock to portrait for documents
+                ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(console.error);
+            }
+
+            if (mediaType === 'video') {
+                player.play();
+            }
         }
-    }, [visible]);
+    }, [visible, player, mediaType]);
 
     const handleOpenExternal = () => {
         if (mediaUri) {
             Linking.openURL(mediaUri).catch(err => console.error('Failed to open:', err));
+        }
+    };
+
+    const handleShare = async () => {
+        if (mediaUri) {
+            const isAvailable = await Sharing.isAvailableAsync();
+            if (isAvailable) {
+                await Sharing.shareAsync(mediaUri, {
+                    dialogTitle: fileName || 'Share Media',
+                    mimeType: mediaType === 'pdf' ? 'application/pdf' : undefined,
+                }).catch(err => console.error('Sharing failed:', err));
+            } else {
+                console.warn('Sharing is not available on this platform');
+            }
         }
     };
 
@@ -50,6 +85,9 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({ visible, mediaUri, med
                         </Text>
                     )}
                     <View style={styles.headerButtons}>
+                        <TouchableOpacity style={styles.headerButton} onPress={handleShare}>
+                            <MaterialCommunityIcons name="share-variant" size={24} color="white" />
+                        </TouchableOpacity>
                         {(mediaType === 'pdf' || mediaType === 'document') && (
                             <TouchableOpacity style={styles.headerButton} onPress={handleOpenExternal}>
                                 <MaterialCommunityIcons name="open-in-new" size={24} color="white" />
@@ -70,13 +108,11 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({ visible, mediaUri, med
                             resizeMode="contain"
                         />
                     ) : mediaType === 'video' ? (
-                        <Video
-                            ref={videoRef}
-                            source={{ uri: mediaUri }}
+                        <VideoView
                             style={styles.video}
-                            useNativeControls
-                            resizeMode={ResizeMode.CONTAIN}
-                            shouldPlay={false}
+                            player={player}
+                            allowsFullscreen
+                            allowsPictureInPicture
                         />
                     ) : mediaType === 'pdf' ? (
                         <WebView

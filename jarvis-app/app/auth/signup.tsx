@@ -3,8 +3,9 @@ import Colors from '@/constants/Colors';
 import { api } from '@/services/api';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link, useRouter } from 'expo-router';
+import { useStore } from '@/store';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
 
 export default function SignupScreen() {
     const [username, setUsername] = useState('');
@@ -13,20 +14,21 @@ export default function SignupScreen() {
     const [phone, setPhone] = useState('');
     const [loading, setLoading] = useState(false);
     const router = useRouter();
+    const showAlert = useStore(state => state.showAlert);
 
     const handleSignup = async () => {
         if (!username || !password || !email) {
-            Alert.alert('Error', 'Please fill in required fields');
+            showAlert('Error', 'Please fill in required fields');
             return;
         }
 
         setLoading(true);
         try {
             await api.auth.signup({ username, email, password, phone_number: phone });
-            Alert.alert('Success', 'Account created! Please log in.');
+            showAlert('Success', 'Account created! Please log in.');
             router.replace('/auth/login');
         } catch (error: any) {
-            Alert.alert('Signup Failed', error.message || 'Something went wrong');
+            showAlert('Signup Failed', error.message || 'Something went wrong');
         } finally {
             setLoading(false);
         }

@@ -8,10 +8,13 @@ import { useEffect } from 'react';
 import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import * as SystemUI from 'expo-system-ui';
 
 import Colors from '@/constants/Colors';
 import { useStore } from '@/store';
 import CustomToast from '@/components/CustomToast';
+import CustomAlert from '@/components/CustomAlert';
+import IncomingCallModal from '@/components/IncomingCallModal';
 
 
 
@@ -73,6 +76,8 @@ export default function RootLayout() {
 import { DefaultTheme } from '@react-navigation/native';
 import { useColorScheme } from 'react-native';
 
+import { KeyboardProvider } from 'react-native-keyboard-controller';
+
 // ...
 
 function RootLayoutNav() {
@@ -99,6 +104,10 @@ function RootLayoutNav() {
   };
 
   useEffect(() => {
+    SystemUI.setBackgroundColorAsync(isDark ? Colors.dark.background : Colors.light.background);
+  }, [isDark]);
+
+  useEffect(() => {
     if (!hasHydrated) return;
 
     const inAuthGroup = segments[0] === 'auth';
@@ -112,36 +121,40 @@ function RootLayoutNav() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <ThemeProvider value={theme}>
-          <StatusBar style={isDark ? "light" : "dark"} />
-          <Stack
-            screenOptions={{
-              headerStyle: {
-                backgroundColor: isDark ? Colors.dark.background : Colors.light.background,
-              },
-              headerTintColor: isDark ? Colors.dark.text : Colors.light.text,
-              contentStyle: {
-                backgroundColor: isDark ? Colors.dark.background : Colors.light.background,
-              }
-            }}
-          >
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen
-              name="chat/[id]"
-              options={{
-                presentation: 'card',
-                headerShown: false,
+      <KeyboardProvider>
+        <SafeAreaProvider>
+          <ThemeProvider value={theme}>
+            <StatusBar style={isDark ? "light" : "dark"} />
+            <Stack
+              screenOptions={{
+                headerStyle: {
+                  backgroundColor: isDark ? Colors.dark.background : Colors.light.background,
+                },
+                headerTintColor: isDark ? Colors.dark.text : Colors.light.text,
+                contentStyle: {
+                  backgroundColor: isDark ? Colors.dark.background : Colors.light.background,
+                }
               }}
-            />
-            <Stack.Screen name="contact/[id]" options={{ headerShown: false }} />
-            <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-            <Stack.Screen name="auth/login" options={{ headerShown: false }} />
-            <Stack.Screen name="auth/signup" options={{ headerShown: false }} />
-          </Stack>
-          <CustomToast />
-        </ThemeProvider>
-      </SafeAreaProvider>
+            >
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen
+                name="chat/[id]"
+                options={{
+                  presentation: 'card',
+                  headerShown: false,
+                }}
+              />
+              <Stack.Screen name="contact/[id]" options={{ headerShown: false }} />
+              <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+              <Stack.Screen name="auth/login" options={{ headerShown: false }} />
+              <Stack.Screen name="auth/signup" options={{ headerShown: false }} />
+            </Stack>
+            <CustomToast />
+            <CustomAlert />
+            <IncomingCallModal />
+          </ThemeProvider>
+        </SafeAreaProvider>
+      </KeyboardProvider>
     </GestureHandlerRootView>
   );
 }

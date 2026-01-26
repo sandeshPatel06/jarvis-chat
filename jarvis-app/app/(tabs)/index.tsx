@@ -7,7 +7,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { FlatList, Image, Pressable, StyleSheet, TextInput, TouchableOpacity, Alert, LayoutAnimation } from 'react-native';
+import { FlatList, Image, Pressable, StyleSheet, TextInput, TouchableOpacity, LayoutAnimation } from 'react-native';
 
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { getMediaUrl } from '@/utils/media';
@@ -19,6 +19,8 @@ export default function ChatsScreen() {
   const fetchChats = useStore((state) => state.fetchChats);
   const deleteChats = useStore((state) => state.deleteChats);
   const user = useStore((state) => state.user);
+  const showAlert = useStore((state) => state.showAlert);
+  const connectWebSocket = useStore((state) => state.connectWebSocket);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedChats, setSelectedChats] = useState<Set<string>>(new Set());
@@ -39,6 +41,7 @@ export default function ChatsScreen() {
 
   useEffect(() => {
     if (user) {
+      connectWebSocket();
       fetchChats();
     }
   }, [user]);
@@ -76,7 +79,7 @@ export default function ChatsScreen() {
 
   const handleDeleteSelected = () => {
     const ids = Array.from(selectedChats);
-    Alert.alert(
+    showAlert(
       "Delete Chats",
       `Are you sure you want to delete ${ids.length} chats?`,
       [
@@ -342,6 +345,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 10,
     elevation: 8,
+    borderRadius: 28,
   },
   fabGradient: {
     width: 56,
@@ -349,5 +353,6 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
 });

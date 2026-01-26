@@ -5,7 +5,7 @@ import { useStore } from '@/store';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function LoginScreen() {
@@ -14,10 +14,11 @@ export default function LoginScreen() {
     const [loading, setLoading] = useState(false);
     const router = useRouter();
     const setUser = useStore(state => state.setUser);
+    const showAlert = useStore(state => state.showAlert);
 
     const handleLogin = async () => {
         if (!username || !password) {
-            Alert.alert('Error', 'Please fill in all fields');
+            showAlert('Error', 'Please fill in all fields');
             return;
         }
 
@@ -27,7 +28,7 @@ export default function LoginScreen() {
             setUser(data.user, data.token);
             router.replace('/(tabs)');
         } catch (error: any) {
-            Alert.alert('Login Failed', error.message || 'Something went wrong');
+            showAlert('Login Failed', error.message || 'Something went wrong');
         } finally {
             setLoading(false);
         }

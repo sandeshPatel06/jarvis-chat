@@ -1,149 +1,150 @@
 import { ScreenWrapper } from '@/components/ScreenWrapper';
 import { Text, View } from '@/components/Themed';
-import Colors from '@/constants/Colors';
 import { useStore } from '@/store';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
-import { Alert, Image, ScrollView, StyleSheet, TouchableOpacity, Switch } from 'react-native';
+import { Image, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { getMediaUrl } from '@/utils/media';
 
-
 export default function SettingsScreen() {
     const router = useRouter();
     const { colors, isDark } = useAppTheme();
-    // Helper to access colors based on theme if needed, but 'colors' object is already correct
     const user = useStore((state) => state.user);
     const logout = useStore((state) => state.logout);
-    const showToast = useStore((state) => state.showToast);
 
     const handleLogout = () => {
         logout();
         router.replace('/auth/login');
     };
 
-    const SettingItem = ({ icon, title, subtitle, onPress, color = colors.text }: any) => (
-        <TouchableOpacity style={styles.item} onPress={onPress}>
-            <View style={styles.iconContainer}>
-                <FontAwesome name={icon} size={22} color={colors.accent} style={{ opacity: 0.8 }} />
+    const SettingCard = ({ icon, title, subtitle, onPress, color = colors.primary, badge }: any) => (
+        <TouchableOpacity
+            style={[styles.card, { backgroundColor: isDark ? colors.inputBackground : '#fff' }]}
+            onPress={onPress}
+        >
+            <View style={[styles.iconBox, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}>
+                <FontAwesome name={icon} size={20} color={color} />
             </View>
-            <View style={styles.textContainer}>
-                <Text style={[styles.itemTitle, { color }]}>{title}</Text>
-                {subtitle && <Text style={styles.itemSubtitle}>{subtitle}</Text>}
+            <View style={styles.cardTextContainer}>
+                <Text style={[styles.cardTitle, { color: colors.text }]}>{title}</Text>
+                {subtitle && <Text style={styles.cardSubtitle}>{subtitle}</Text>}
             </View>
+            {badge && (
+                <View style={[styles.badge, { backgroundColor: colors.primary }]}>
+                    <Text style={styles.badgeText}>{badge}</Text>
+                </View>
+            )}
+            <FontAwesome name="chevron-right" size={14} color={colors.tabIconDefault} style={styles.chevron} />
         </TouchableOpacity>
     );
 
     return (
-        <ScreenWrapper style={styles.container}>
-            <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
-                {/* Profile Header */}
-                <TouchableOpacity style={styles.profileHeader} onPress={() => router.push('/settings/profile')}>
-                    <Image
-                        source={getMediaUrl(user?.profile_picture) ? { uri: getMediaUrl(user?.profile_picture)! } : require('@/assets/images/default-avatar.png')}
-                        style={styles.avatar}
-                    />
-                    <View style={styles.profileInfo}>
-                        <Text style={[styles.name, { color: colors.text }]}>{user?.username || 'User'}</Text>
-                        <Text style={styles.status}>{user?.bio || 'Available'}</Text>
-                    </View>
-                    <FontAwesome name="qrcode" size={24} color={colors.accent} style={styles.qrIcon} />
+        <ScreenWrapper style={styles.container} edges={['top', 'left', 'right']}>
+            <ScrollView
+                style={[styles.container, { backgroundColor: colors.background }]}
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+            >
+                {/* <Text style={[styles.pageTitle, { color: colors.text }]}>Settings</Text> */}
+
+                {/* Profile Header Card */}
+                <TouchableOpacity
+                    onPress={() => router.push('/settings/profile')}
+                    activeOpacity={0.9}
+                >
+                    <LinearGradient
+                        colors={[colors.primary, isDark ? '#4A42B3' : '#8E85FF']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.profileCard}
+                    >
+                        <Image
+                            source={getMediaUrl(user?.profile_picture) ? { uri: getMediaUrl(user?.profile_picture)! } : require('@/assets/images/default-avatar.png')}
+                            style={styles.avatar}
+                        />
+                        <View style={styles.profileInfo}>
+                            <Text style={styles.name}>{user?.username || 'User'}</Text>
+                            <Text style={styles.status} numberOfLines={1}>{user?.bio || 'Available'}</Text>
+                            {/* <View style={styles.profileBadge}>
+                                <FontAwesome name="star" size={10} color="#FFD700" />
+                                <Text style={styles.profileBadgeText}>Premium User</Text>
+                            </View> */}
+                        </View>
+                        <TouchableOpacity style={styles.qrButton}>
+                            <FontAwesome name="qrcode" size={20} color="white" />
+                        </TouchableOpacity>
+                    </LinearGradient>
                 </TouchableOpacity>
 
-                <View style={[styles.separator, { backgroundColor: colors.itemSeparator }]} />
-
-                {/* Settings List */}
-                <SettingItem
-                    icon="key"
-                    title="Account"
-                    subtitle="Security notifications, change number"
-                    onPress={() => showToast('info', 'Account Settings', 'This feature is coming soon.')}
-                />
-                <SettingItem
-                    icon="lock"
-                    title="Privacy"
-                    subtitle="Block contacts, disappearing messages"
-                    onPress={() => showToast('info', 'Privacy Settings', 'This feature is coming soon.')}
-                />
-                <SettingItem
-                    icon="paint-brush"
-                    title="App Theme"
-                    subtitle={`Current: ${useStore.getState().theme.charAt(0).toUpperCase() + useStore.getState().theme.slice(1)}`}
-                    onPress={() => {
-                        Alert.alert('Choose Theme', 'Select your preferred app theme', [
-                            { text: 'System Default', onPress: () => useStore.getState().setTheme('system') },
-                            { text: 'Light Mode', onPress: () => useStore.getState().setTheme('light') },
-                            { text: 'Dark Mode', onPress: () => useStore.getState().setTheme('dark') },
-                            { text: 'Cancel', style: 'cancel' }
-                        ]);
-                    }}
-                />
-                <View style={styles.item}>
-                    <View style={styles.iconContainer}>
-                        <FontAwesome name="bolt" size={22} color={colors.accent} style={{ opacity: 0.8 }} />
-                    </View>
-                    <View style={styles.textContainer}>
-                        <Text style={[styles.itemTitle, { color: colors.text }]}>Enable Animations</Text>
-                        <Text style={styles.itemSubtitle}>Smooth layout transitions</Text>
-                    </View>
-                    <Switch
-                        value={useStore((state) => state.animationsEnabled)}
-                        onValueChange={(val) => useStore.getState().setAnimationsEnabled(val)}
-                        trackColor={{ false: '#767577', true: colors.primary }}
-                        thumbColor={'white'}
+                <View style={styles.section}>
+                    <Text style={[styles.sectionTitle, { color: colors.text, opacity: 0.6 }]}>Preferences</Text>
+                    <SettingCard
+                        icon="user"
+                        title="Account"
+                        subtitle="Security, change number, delete account"
+                        onPress={() => router.push('/settings/account')}
+                    />
+                    <SettingCard
+                        icon="lock"
+                        title="Privacy"
+                        subtitle="Last seen, profile photo, read receipts"
+                        onPress={() => router.push('/settings/privacy')}
+                    />
+                    <SettingCard
+                        icon="comment-o"
+                        title="Chats"
+                        subtitle="Theme, wallpapers, animations"
+                        onPress={() => router.push('/settings/chats')}
+                    />
+                    <SettingCard
+                        icon="bell-o"
+                        title="Notifications"
+                        subtitle="Message, group & call tones"
+                        onPress={() => router.push('/settings/notifications')}
+                    />
+                    <SettingCard
+                        icon="database"
+                        title="Storage and data"
+                        subtitle="Network usage, auto-download"
+                        onPress={() => router.push('/settings/storage')}
                     />
                 </View>
-                <SettingItem
-                    icon="comment"
-                    title="Chats"
-                    subtitle="Theme, wallpapers, chat history"
-                    onPress={() => showToast('info', 'Chat Settings', 'This feature is coming soon.')}
-                />
-                <SettingItem
-                    icon="bell"
-                    title="Notifications"
-                    subtitle="Message, group & call tones"
-                    onPress={() => showToast('info', 'Notification Settings', 'This feature is coming soon.')}
-                />
-                <SettingItem
-                    icon="hdd-o"
-                    title="Storage and data"
-                    subtitle="Network usage, auto-download"
-                    onPress={() => showToast('info', 'Storage Settings', 'This feature is coming soon.')}
-                />
-                <SettingItem
-                    icon="globe"
-                    title="App language"
-                    subtitle="English (device's language)"
-                    onPress={() => showToast('info', 'App Language', 'This feature is coming soon.')}
-                />
-                <SettingItem
-                    icon="question-circle"
-                    title="Help"
-                    subtitle="Help center, contact us, privacy policy"
-                    onPress={() => showToast('info', 'Help & Support', 'This feature is coming soon.')}
-                />
 
-                <View style={[styles.separator, { backgroundColor: colors.itemSeparator }]} />
-
-                <SettingItem
-                    icon="users"
-                    title="Invite a friend"
-                    onPress={() => showToast('info', 'Invite Friends', 'This feature is coming soon.')}
-                />
-
-                <View style={[styles.separator, { backgroundColor: colors.itemSeparator }]} />
+                <View style={styles.section}>
+                    <Text style={[styles.sectionTitle, { color: colors.text, opacity: 0.6 }]}>App Info</Text>
+                    <SettingCard
+                        icon="globe"
+                        title="App language"
+                        subtitle={user?.app_language === 'en' ? 'English' : (user?.app_language || 'English')}
+                        onPress={() => router.push('/settings/language')}
+                    />
+                    <SettingCard
+                        icon="question-circle-o"
+                        title="Help"
+                        subtitle="Help center, contact us, privacy policy"
+                        onPress={() => router.push('/settings/help')}
+                    />
+                    <SettingCard
+                        icon="users"
+                        title="Invite a friend"
+                        onPress={() => { }}
+                    />
+                </View>
 
                 <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+                    <FontAwesome name="sign-out" size={18} color="#FF453A" style={{ marginRight: 10 }} />
                     <Text style={styles.logoutText}>Log out</Text>
                 </TouchableOpacity>
 
-                <View style={{ height: 40 }} />
-                <Text style={styles.version}>from</Text>
-                <Text style={[styles.brand, { color: colors.text }]}>JARVIS AI</Text>
-                <View style={{ height: 40 }} />
+                <View style={styles.footer}>
+                    <Text style={styles.version}>v1.0.0</Text>
+                    <Text style={[styles.brand, { color: colors.primary }]}>JARVIS AI</Text>
+                </View>
 
+                <View style={{ height: 40 }} />
             </ScrollView>
         </ScreenWrapper>
     );
@@ -153,81 +154,155 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
     },
-    profileHeader: {
+    scrollContent: {
+        paddingHorizontal: 20,
+        paddingTop: 10,
+    },
+    pageTitle: {
+        fontSize: 32,
+        fontWeight: '800',
+        marginBottom: 25,
+        letterSpacing: -0.5,
+    },
+    profileCard: {
         flexDirection: 'row',
         alignItems: 'center',
         padding: 20,
-        paddingTop: 10,
+        borderRadius: 24,
+        marginBottom: 30,
+        elevation: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 12,
     },
     avatar: {
-        width: 60,
-        height: 60,
-        borderRadius: 30,
-        marginRight: 15,
+        width: 70,
+        height: 70,
+        borderRadius: 35,
+        borderWidth: 3,
+        borderColor: 'rgba(255,255,255,0.3)',
     },
     profileInfo: {
         flex: 1,
+        marginLeft: 15,
     },
     name: {
-        fontSize: 20,
+        fontSize: 22,
         fontWeight: 'bold',
-        marginBottom: 2,
+        color: 'white',
+        letterSpacing: 0.5,
     },
     status: {
         fontSize: 14,
-        color: 'gray',
+        color: 'rgba(255,255,255,0.8)',
+        marginTop: 2,
     },
-    qrIcon: {
-        padding: 10,
-    },
-    item: {
+    profileBadge: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 15,
-        paddingHorizontal: 20,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        alignSelf: 'flex-start',
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 10,
+        marginTop: 8,
     },
-    iconContainer: {
-        width: 30,
+    profileBadgeText: {
+        color: 'white',
+        fontSize: 10,
+        fontWeight: 'bold',
+        marginLeft: 4,
+    },
+    qrButton: {
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        padding: 10,
+        borderRadius: 15,
+    },
+    section: {
+        marginBottom: 25,
+    },
+    sectionTitle: {
+        fontSize: 13,
+        fontWeight: '700',
+        marginBottom: 12,
+        marginLeft: 5,
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+    },
+    card: {
+        flexDirection: 'row',
         alignItems: 'center',
-        marginRight: 15,
+        padding: 16,
+        borderRadius: 20,
+        marginBottom: 12,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
+        elevation: 2,
     },
-    textContainer: {
+    iconBox: {
+        width: 44,
+        height: 44,
+        borderRadius: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    cardTextContainer: {
         flex: 1,
+        marginLeft: 15,
     },
-    itemSubtitle: {
+    cardTitle: {
+        fontSize: 17,
+        fontWeight: '600',
+    },
+    cardSubtitle: {
         fontSize: 13,
         color: 'gray',
         marginTop: 2,
     },
-    separator: {
-        height: StyleSheet.hairlineWidth,
-        marginVertical: 10,
+    chevron: {
+        opacity: 0.3,
     },
-    // ...
-    itemTitle: {
-        fontSize: 16,
-        fontWeight: '500',
+    badge: {
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 10,
+        marginRight: 10,
+    },
+    badgeText: {
+        color: 'white',
+        fontSize: 12,
+        fontWeight: 'bold',
     },
     logoutButton: {
-        padding: 20,
+        flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'center',
+        padding: 18,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255, 69, 58, 0.1)',
+        marginTop: 10,
     },
     logoutText: {
-        color: '#ff4444',
-        fontSize: 16,
-        fontWeight: 'bold',
+        color: '#FF453A',
+        fontSize: 17,
+        fontWeight: '700',
+    },
+    footer: {
+        marginTop: 30,
+        alignItems: 'center',
     },
     version: {
-        textAlign: 'center',
-        color: 'gray',
         fontSize: 12,
+        color: 'gray',
     },
     brand: {
-        textAlign: 'center',
-        color: Colors.dark.text,
-        fontSize: 14,
-        fontWeight: 'bold',
-        letterSpacing: 2,
+        fontSize: 16,
+        fontWeight: '900',
+        letterSpacing: 3,
         marginTop: 5,
     }
 });
+

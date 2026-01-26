@@ -1,14 +1,15 @@
 import { useAppTheme } from '@/hooks/useAppTheme';
 import React, { useEffect } from 'react';
 import { StyleSheet, ViewStyle, View, Platform, LayoutAnimation, UIManager } from 'react-native';
-import { Edge, SafeAreaView } from 'react-native-safe-area-context';
+import { Edge, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStore } from '@/store';
 
-if (Platform.OS === 'android') {
-    if (UIManager.setLayoutAnimationEnabledExperimental) {
-        UIManager.setLayoutAnimationEnabledExperimental(true);
-    }
-}
+// setLayoutAnimationEnabledExperimental is a no-op in the New Architecture and triggers a warning
+// if (Platform.OS === 'android') {
+//     if (UIManager.setLayoutAnimationEnabledExperimental) {
+//         UIManager.setLayoutAnimationEnabledExperimental(true);
+//     }
+// }
 
 interface ScreenWrapperProps {
     children: React.ReactNode;
@@ -23,13 +24,17 @@ export const ScreenWrapper: React.FC<ScreenWrapperProps> = ({
     edges = ['left', 'right'], // Default edges - top and bottom handled by navigation
     backgroundColor
 }) => {
+    const insets = useSafeAreaInsets();
     const { colors } = useAppTheme();
     const animationsEnabled = useStore((state) => state.animationsEnabled);
 
-    // Optional: Global layout animation for screen entry/updates if desired
-    // useEffect(() => {
-    //    if (animationsEnabled) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    // }, [children, animationsEnabled]);
+    // Calculate padding based on edges
+    const paddingStyle = {
+        paddingTop: edges.includes('top') ? insets.top : 0,
+        paddingBottom: edges.includes('bottom') ? insets.bottom : 0,
+        paddingLeft: edges.includes('left') ? insets.left : 0,
+        paddingRight: edges.includes('right') ? insets.right : 0,
+    };
 
     const containerStyle = {
         backgroundColor: backgroundColor || colors.background,
@@ -37,11 +42,11 @@ export const ScreenWrapper: React.FC<ScreenWrapperProps> = ({
     };
 
     return (
-        <SafeAreaView edges={edges} style={[styles.container, containerStyle]}>
+        <View style={[styles.container, containerStyle, paddingStyle]}>
             <View style={[styles.contentContainer, style]}>
                 {children}
             </View>
-        </SafeAreaView>
+        </View>
     );
 };
 

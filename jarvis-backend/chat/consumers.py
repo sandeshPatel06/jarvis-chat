@@ -192,6 +192,44 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     )
             return
 
+        # WebRTC Signaling
+        # WebRTC Signaling
+        if message_type in ['webrtc_offer', 'webrtc_answer', 'webrtc_ice_candidate']:
+            print(f"[WS] 🔵 WebRTC {message_type} received: {text_data_json}")
+            chat_id = text_data_json.get('chat_id')
+            if not chat_id:
+                print(f"[WS] ❌ WebRTC signal missing chat_id")
+                return
+
+            recipient_id = await self.get_recipient_from_conversation(chat_id)
+            if recipient_id:
+                print(f"[WS] ➡️ Broadcasting {message_type} to user_{recipient_id}")
+                await self.channel_layer.group_send(
+                    f"user_{recipient_id}",
+                    {
+                        'type': 'webrtc_signal',
+                        'payload': text_data_json 
+                    }
+                )
+            else:
+                print(f"[WS] ❌ Could not find recipient for WebRTC signal in chat {chat_id}")
+            return
+            
+        if message_type == 'call_ended':
+            print(f"[WS] 🔴 Call ended signal received: {text_data_json}")
+            chat_id = text_data_json.get('chat_id')
+            recipient_id = await self.get_recipient_from_conversation(chat_id)
+            if recipient_id:
+                print(f"[WS] ➡️ Broadcasting call_ended to user_{recipient_id}")
+                await self.channel_layer.group_send(
+                    f"user_{recipient_id}",
+                    {
+                        'type': 'call_ended',
+                        'chat_id': chat_id
+                    }
+                )
+            return
+
         message_text = text_data_json.get('message')
         recipient_id = text_data_json.get('recipient_id')
         conversation_id = text_data_json.get('conversation_id')
@@ -401,9 +439,22 @@ class ChatConsumer(AsyncWebsocketConsumer):
         }))
 
     async def message_reaction(self, event):
-         await self.send(text_data=json.dumps({
+        await self.send(text_data=json.dumps({
             'type': 'message_reaction',
             'message_id': event['message_id'],
             'conversation_id': event['conversation_id'],
             'reactions': event['reactions']
         }))
+
+    async def webrtc_signal(self, event):
+        # Relay the exact payload received from the sender
+        payload = event['payload']
+        # Ensure the type matches what the frontend expects
+        await self.send(text_data=json.dumps(payload))
+
+    async def call_ended(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'call_ended',
+            'chat_id': event['chat_id']
+        }))
+
