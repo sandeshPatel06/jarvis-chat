@@ -10,7 +10,7 @@ import { BlurView } from 'expo-blur';
 export default function IncomingCallModal() {
     const { callState, acceptCall, endCall, chats } = useStore();
     const { incomingCall } = callState;
-    const { colors, isDark } = useAppTheme();
+    const { colors, theme, isDark } = useAppTheme();
     const router = useRouter();
 
     if (!incomingCall) return null;
@@ -50,12 +50,12 @@ export default function IncomingCallModal() {
                     </View>
 
                     <View style={styles.actions}>
-                        <TouchableOpacity style={[styles.button, styles.declineButton]} onPress={handleDecline}>
+                        <TouchableOpacity style={[styles.button, styles.declineButton, { backgroundColor: colors.error }]} onPress={handleDecline}>
                             <MaterialIcons name="call-end" size={32} color="white" />
                             <Text style={styles.buttonText}>Decline</Text>
                         </TouchableOpacity>
 
-                        <TouchableOpacity style={[styles.button, styles.acceptButton]} onPress={handleAccept}>
+                        <TouchableOpacity style={[styles.button, styles.acceptButton, { backgroundColor: colors.success }]} onPress={handleAccept}>
                             <MaterialIcons name="call" size={32} color="white" />
                             <Text style={styles.buttonText}>Accept</Text>
                         </TouchableOpacity>
@@ -69,7 +69,7 @@ export default function IncomingCallModal() {
 const styles = StyleSheet.create({
     overlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)',
+        backgroundColor: 'rgba(0,0,0,0.4)',
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -115,7 +115,6 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     acceptButton: {
-        backgroundColor: '#4CD964',
         width: 70,
         height: 70,
         borderRadius: 35,
@@ -126,7 +125,6 @@ const styles = StyleSheet.create({
         shadowRadius: 5,
     },
     declineButton: {
-        backgroundColor: '#FF3B30',
         width: 70,
         height: 70,
         borderRadius: 35,

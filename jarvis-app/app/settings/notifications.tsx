@@ -39,10 +39,10 @@ export default function NotificationsSettingsScreen() {
         <ScreenWrapper style={styles.container} edges={['top', 'left', 'right', 'bottom']}>
             <View style={[styles.header, { borderBottomColor: colors.itemSeparator }]}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <FontAwesome name="chevron-left" size={18} color={colors.primary} />
+                    <FontAwesome name="bell" size={18} color={colors.primary} />
                 </TouchableOpacity>
                 <Text style={[styles.headerTitle, { color: colors.text }]}>Notifications</Text>
-                <View style={{ width: 40 }} />
+                {/* <View style={{ width: 40 }} /> */}
             </View>
 
             <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
+        justifyContent: 'center',
         paddingHorizontal: 15,
         paddingTop: 20,
         paddingBottom: 12,
@@ -100,6 +100,7 @@ const styles = StyleSheet.create({
     headerTitle: {
         fontSize: 18,
         fontWeight: 'bold',
+        marginVertical: 10,
     },
     scrollContent: {
         padding: 16,

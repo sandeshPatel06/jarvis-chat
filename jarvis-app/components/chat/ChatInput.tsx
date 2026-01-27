@@ -82,7 +82,7 @@ export const ChatInput = ({
     return (
         <View style={{ backgroundColor: colors.background, paddingBottom: !keyboardVisible ? Math.max(insets.bottom, 20) : 40, zIndex: 10 }}>
             {showAttachMenu && (
-                <View style={[styles.attachMenu, { backgroundColor: colors.background, borderColor: colors.itemSeparator, borderWidth: 1, zIndex: 10, marginBottom: 15 }]}>
+                <View style={[styles.attachMenu, { backgroundColor: colors.background, borderColor: colors.border, borderWidth: 1, zIndex: 10, marginBottom: 15 }]}>
                     <TouchableOpacity onPress={() => handleAttachment('*/*')} style={styles.menuItem}>
                         <FontAwesome name="file-text-o" size={20} color={colors.text} style={{ width: 25 }} />
                         <Text style={[styles.menuText, { color: colors.text }]}>Document</Text>
@@ -276,7 +276,7 @@ const styles = StyleSheet.create({
             width: 0,
             height: 2,
         },
-        shadowOpacity: 0.25,
+        shadowOpacity: 0.1,
         shadowRadius: 3.84,
         elevation: 5,
         width: 150,

@@ -177,7 +177,12 @@ class WebRTCService {
     async addIceCandidate(candidate: RTCIceCandidate) {
         if (!this.peerConnection) return;
         try {
-            await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+            // WebRTC requires a remote description to be set before adding candidates
+            if (this.peerConnection.remoteDescription) {
+                await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+            } else {
+                console.warn('[WebRTC] addIceCandidate called without remoteDescription, this should be handled by buffering in the store.');
+            }
         } catch (error) {
             console.error("Error adding ice candidate:", error);
         }

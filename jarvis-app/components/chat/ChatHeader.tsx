@@ -7,6 +7,7 @@ import { Chat } from '@/types';
 import { useStore } from '@/store';
 import { useRouter } from 'expo-router';
 import { getMediaUrl } from '@/utils/media';
+import { formatLastSeen } from '@/utils/date';
 
 interface ChatHeaderProps {
     chat: Chat;
@@ -37,7 +38,7 @@ export const ChatHeader = ({ chat, typingUser, onOptionsPress }: ChatHeaderProps
                 styles.header,
                 {
                     backgroundColor: colors.background, // Clean background
-                    borderBottomColor: colors.itemSeparator,
+                    borderBottomColor: colors.border,
                 },
             ]}
         >
@@ -80,8 +81,10 @@ export const ChatHeader = ({ chat, typingUser, onOptionsPress }: ChatHeaderProps
                         ]}
                     >
                         {typingUser
-                            ? `${typingUser} is typing...`
-                            : chat.status || 'Online'}
+                            ? 'typing...'
+                            : chat.is_online
+                                ? 'Online'
+                                : formatLastSeen(chat.last_seen)}
                     </Text>
                 </View>
             </TouchableOpacity>

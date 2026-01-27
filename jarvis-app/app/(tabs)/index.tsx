@@ -106,7 +106,7 @@ export default function ChatsScreen() {
           style={({ pressed }) => [
             styles.itemContainer,
             {
-              backgroundColor: isSelected ? colors.primary + '20' : colors.inputBackground, // Card background
+              backgroundColor: isSelected ? colors.primary + '20' : colors.card, // Card background
               opacity: pressed ? 0.9 : 1,
               transform: [{ scale: pressed ? 0.98 : 1 }],
               borderRadius: 20, // Rounded Corners
@@ -118,10 +118,15 @@ export default function ChatsScreen() {
               <FontAwesome name={isSelected ? "check-circle" : "circle-thin"} size={24} color={isSelected ? colors.primary : colors.text} />
             </View>
           )}
-          <Image
-            source={getMediaUrl(item.avatar) ? { uri: getMediaUrl(item.avatar)! } : require('@/assets/images/default-avatar.png')}
-            style={styles.avatar}
-          />
+          <View style={styles.avatarContainer}>
+            <Image
+              source={getMediaUrl(item.avatar) ? { uri: getMediaUrl(item.avatar)! } : require('@/assets/images/default-avatar.png')}
+              style={styles.avatar}
+            />
+            {item.is_online && (
+              <View style={[styles.onlineIndicator, { borderColor: colors.card }]} />
+            )}
+          </View>
           <View style={styles.contentContainer}>
             <View style={styles.headerRow}>
               <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{item.name}</Text>
@@ -185,14 +190,14 @@ export default function ChatsScreen() {
             <View />
           </View>
         ) : (
-          <View style={styles.headerSearchContainer}>
+          <View style={[styles.headerSearchContainer, { backgroundColor: colors.backgroundSecondary }]}>
             <TouchableOpacity onPress={toggleSearch} style={styles.headerIcon}>
               <FontAwesome name="arrow-left" size={24} color={colors.text} />
             </TouchableOpacity>
             <TextInput
               style={[styles.headerSearchInput, { color: colors.text }]}
               placeholder="Search..."
-              placeholderTextColor={colors.text + '80'}
+              placeholderTextColor={colors.textSecondary}
               value={searchQuery}
               onChangeText={setSearchQuery}
               autoFocus
@@ -249,7 +254,6 @@ const styles = StyleSheet.create({
   headerSearchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.05)',
     borderRadius: 15,
     padding: 10,
     marginBottom: 10,
@@ -284,11 +288,24 @@ const styles = StyleSheet.create({
     // shadowRadius: 2,
     // elevation: 1,
   },
+  avatarContainer: {
+    position: 'relative',
+    marginRight: 15,
+  },
   avatar: {
     width: 54,
     height: 54,
     borderRadius: 27,
-    marginRight: 15,
+  },
+  onlineIndicator: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#4ade80', // Green-400
+    borderWidth: 2,
   },
   contentContainer: {
     flex: 1,
@@ -335,7 +352,7 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    bottom: 90, // Above tab bar
+    bottom: '20%', // Above tab bar
     right: 20,
     shadowColor: '#000',
     shadowOffset: {

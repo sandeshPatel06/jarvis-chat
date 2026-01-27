@@ -1,34 +1,52 @@
-const tintColorLight = '#007AFF';
-const tintColorDark = '#0A84FF';
+const tintColorLight = '#6C63FF';
+const tintColorDark = '#7F75FF';
 
 export default {
   light: {
     text: '#1C1C1E',
-    background: '#FFFFFF', // Cleaner white
-    tint: '#6C63FF',      // Modern Indigo/Violet
+    textSecondary: '#8E8E93',
+    background: '#FFFFFF',
+    backgroundSecondary: '#F2F2F7',
+    tint: tintColorLight,
     tabIconDefault: '#8E8E93',
-    tabIconSelected: '#6C63FF',
-    primary: '#6C63FF',   // Main Brand Color
-    secondary: '#FF6584', // Secondary Accent (Pinkish)
+    tabIconSelected: tintColorLight,
+    primary: tintColorLight,
+    secondary: '#FF6584',
     accent: '#32D74B',
     glass: 'rgba(255, 255, 255, 0.9)',
     inputBackground: '#F2F2F7',
     itemSeparator: 'rgba(60, 60, 67, 0.1)',
-    messageBubbleThem: '#F2F4F7', // Soft gray for "Them"
+    messageBubbleMe: tintColorLight,
+    messageBubbleThem: '#F2F4F7',
+    border: '#E5E5EA',
+    notification: '#FF3B30',
+    card: '#FFFFFF',
+    cardSecondary: '#F2F2F7',
+    error: '#FF3B30',
+    success: '#34C759',
   },
   dark: {
     text: '#FFFFFF',
-    background: '#0F0F13', // Deep modern dark
-    tint: '#7F75FF',
+    textSecondary: '#8E8E93',
+    background: '#0F0F13',
+    backgroundSecondary: '#1E1E24',
+    tint: tintColorDark,
     tabIconDefault: '#8E8E93',
-    tabIconSelected: '#7F75FF',
-    primary: '#7F75FF',
+    tabIconSelected: tintColorDark,
+    primary: tintColorDark,
     secondary: '#FF6584',
     accent: '#32D74B',
     glass: 'rgba(30, 30, 35, 0.85)',
     inputBackground: '#1E1E24',
     itemSeparator: 'rgba(84, 84, 88, 0.4)',
-    messageBubbleThem: 'rgba(255, 255, 255, 0.1)', // Glass effect for "Them"
+    messageBubbleMe: tintColorDark,
+    messageBubbleThem: 'rgba(255, 255, 255, 0.1)',
+    border: '#38383A',
+    notification: '#FF453A',
+    card: '#1C1C1E',
+    cardSecondary: '#2C2C2E',
+    error: '#FF453A',
+    success: '#32D74B',
   },
 };
 

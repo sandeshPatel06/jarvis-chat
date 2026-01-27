@@ -38,7 +38,7 @@ export default function ChatsSettingsScreen() {
 
     const SettingRow = ({ title, value, onPress, isSwitch, switchValue, onSwitchChange }: any) => (
         <TouchableOpacity
-            style={[styles.row, { borderBottomColor: colors.itemSeparator }]}
+            style={[styles.row, { borderBottomColor: colors.border }]}
             onPress={onPress}
             disabled={isSwitch}
         >
@@ -61,12 +61,12 @@ export default function ChatsSettingsScreen() {
 
     return (
         <ScreenWrapper style={styles.container} edges={['top', 'left', 'right', 'bottom']}>
-            <View style={[styles.header, { borderBottomColor: colors.itemSeparator }]}>
+            <View style={[styles.header, { borderBottomColor: colors.border }]}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <FontAwesome name="chevron-left" size={18} color={colors.primary} />
+                    <FontAwesome name="comments" size={18} color={colors.primary} />
                 </TouchableOpacity>
                 <Text style={[styles.headerTitle, { color: colors.text }]}>Chats</Text>
-                <View style={{ width: 40 }} />
+                {/* <View style={{ width: 40 }} /> */}
             </View>
 
             <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
+        justifyContent: 'center',
         paddingHorizontal: 15,
         paddingTop: 20,
         paddingBottom: 12,
@@ -122,6 +122,7 @@ const styles = StyleSheet.create({
     headerTitle: {
         fontSize: 18,
         fontWeight: 'bold',
+        marginVertical: 10,
     },
     scrollContent: {
         padding: 16,

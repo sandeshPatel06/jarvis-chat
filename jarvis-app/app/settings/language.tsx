@@ -5,6 +5,7 @@ import { useAppTheme } from '@/hooks/useAppTheme';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
+import * as Localization from 'expo-localization';
 
 export default function LanguageSettingsScreen() {
     const { colors, isDark } = useAppTheme();
@@ -20,6 +21,9 @@ export default function LanguageSettingsScreen() {
         { code: 'hi', name: 'Hindi', native: 'हिन्दी' },
     ];
 
+    const systemLocale = Localization.getLocales()[0];
+    const systemLanguageName = languages.find(l => l.code === systemLocale.languageCode)?.name || systemLocale.languageCode;
+
     const handleSelect = async (code: string) => {
         try {
             await updateSettings({ app_language: code });
@@ -32,13 +36,34 @@ export default function LanguageSettingsScreen() {
         <ScreenWrapper style={styles.container} edges={['top', 'left', 'right', 'bottom']}>
             <View style={[styles.header, { borderBottomColor: colors.itemSeparator }]}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <FontAwesome name="chevron-left" size={18} color={colors.primary} />
+                    <FontAwesome name="globe" size={18} color={colors.primary} />
                 </TouchableOpacity>
                 <Text style={[styles.headerTitle, { color: colors.text }]}>App Language</Text>
-                <View style={{ width: 40 }} />
+                {/* <View style={{ width: 40 }} /> */}
             </View>
 
             <ScrollView contentContainerStyle={styles.scrollContent}>
+                <View style={styles.sectionHeader}>
+                    <Text style={[styles.sectionTitle, { color: colors.tabIconDefault }]}>System Language</Text>
+                </View>
+                <View style={[styles.card, { backgroundColor: isDark ? colors.inputBackground : '#fff', marginBottom: 20 }]}>
+                    <TouchableOpacity
+                        style={styles.row}
+                        onPress={() => handleSelect(systemLocale.languageCode || 'en')}
+                    >
+                        <View style={styles.rowMain}>
+                            <Text style={[styles.rowTitle, { color: colors.text }]}>System Default</Text>
+                            <Text style={styles.rowValue}>{systemLanguageName}</Text>
+                        </View>
+                        {user?.app_language === systemLocale.languageCode && (
+                            <FontAwesome name="check-circle" size={20} color={colors.primary} />
+                        )}
+                    </TouchableOpacity>
+                </View>
+
+                <View style={styles.sectionHeader}>
+                    <Text style={[styles.sectionTitle, { color: colors.tabIconDefault }]}>All Languages</Text>
+                </View>
                 <View style={[styles.card, { backgroundColor: isDark ? colors.inputBackground : '#fff' }]}>
                     {languages.map((lang) => (
                         <TouchableOpacity
@@ -63,13 +88,15 @@ export default function LanguageSettingsScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 15, paddingTop: 20, paddingBottom: 12, borderBottomWidth: StyleSheet.hairlineWidth },
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 15, paddingTop: 20, paddingBottom: 12, borderBottomWidth: StyleSheet.hairlineWidth },
     backButton: { padding: 5, width: 40 },
-    headerTitle: { fontSize: 18, fontWeight: 'bold' },
+    headerTitle: { fontSize: 18, fontWeight: 'bold', marginVertical: 10 },
     scrollContent: { padding: 16 },
     card: { borderRadius: 16, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2 },
     row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 16, borderBottomWidth: StyleSheet.hairlineWidth },
     rowMain: { flex: 1 },
     rowTitle: { fontSize: 16, fontWeight: '500' },
-    rowValue: { fontSize: 14, color: 'gray', marginTop: 2 }
+    rowValue: { fontSize: 14, color: 'gray', marginTop: 2 },
+    sectionHeader: { marginBottom: 8, paddingHorizontal: 4 },
+    sectionTitle: { fontSize: 13, fontWeight: '600', textTransform: 'uppercase' }
 });

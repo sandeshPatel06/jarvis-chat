@@ -41,19 +41,19 @@ const CustomToast = () => {
 
     const toastStyles = {
         success: {
-            backgroundColor: isDark ? '#1b3320' : '#e7f8ef',
-            borderColor: '#4CAF50',
-            textColor: isDark ? '#a5d6a7' : '#256029',
+            backgroundColor: colors.success + '20',
+            borderColor: colors.success,
+            textColor: colors.success,
         },
         error: {
-            backgroundColor: isDark ? '#421a1a' : '#fdecea',
-            borderColor: '#F44336',
-            textColor: isDark ? '#ef9a9a' : '#a82824',
+            backgroundColor: colors.error + '20',
+            borderColor: colors.error,
+            textColor: colors.error,
         },
         info: {
-            backgroundColor: isDark ? '#1a1f33' : '#f0f4ff',
-            borderColor: colors.accent,
-            textColor: isDark ? colors.accent : '#2c3f7c',
+            backgroundColor: colors.primary + '20',
+            borderColor: colors.primary,
+            textColor: colors.primary,
         },
     };
 

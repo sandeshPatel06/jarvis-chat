@@ -15,7 +15,7 @@ interface MessageItemProps {
 }
 
 export const MessageItemComponent = ({ item, onLongPress, onSwipeReply, onSwipeForward }: MessageItemProps) => {
-    const { colors } = useAppTheme();
+    const { colors, isDark } = useAppTheme();
     const isMe = item.sender === 'me';
     const reactions = item.reactions || [];
     const swipeableRef = React.useRef<Swipeable>(null);
@@ -69,10 +69,6 @@ export const MessageItemComponent = ({ item, onLongPress, onSwipeReply, onSwipeF
 
 
     const renderLeftActions = (progress: any, dragX: any) => {
-        const trans = dragX.interpolate({
-            inputRange: [0, 50, 100, 101],
-            outputRange: [-20, 0, 0, 1],
-        });
         return (
             <View style={styles.swipeLeftAction}>
                 <MaterialCommunityIcons name="reply" size={24} color={colors.primary} />
@@ -82,11 +78,9 @@ export const MessageItemComponent = ({ item, onLongPress, onSwipeReply, onSwipeF
 
     const handleSwipeOpen = (direction: 'left' | 'right') => {
         if (direction === 'left' && onSwipeReply) {
-            // Swiped right (left actions visible)
             onSwipeReply(item);
             swipeableRef.current?.close();
         } else if (direction === 'right' && onSwipeForward) {
-            // Swiped left (right actions visible)
             onSwipeForward(item);
             swipeableRef.current?.close();
         }
@@ -132,7 +126,7 @@ export const MessageItemComponent = ({ item, onLongPress, onSwipeReply, onSwipeF
                                 ]}
                             >
                                 {item.reply_to && (
-                                    <View style={[styles.replyContainer, { backgroundColor: 'rgba(0,0,0,0.05)' }]}>
+                                    <View style={[styles.replyContainer, { backgroundColor: colors.backgroundSecondary, borderLeftColor: colors.primary }]}>
                                         <View style={[styles.replyBar, { backgroundColor: colors.primary }]} />
                                         <View style={{ flex: 1 }}>
                                             <Text numberOfLines={1} style={[styles.replySender, { color: colors.primary }]}>{item.reply_to.sender}</Text>
@@ -167,7 +161,7 @@ export const MessageItemComponent = ({ item, onLongPress, onSwipeReply, onSwipeF
                                                 </View>
                                             </TouchableOpacity>
                                         ) : item.file_type === 'application/pdf' ? (
-                                            <View style={styles.documentPreview}>
+                                            <View style={[styles.documentPreview, { backgroundColor: colors.backgroundSecondary }]}>
                                                 <View style={[styles.pdfIcon, { backgroundColor: colors.primary + '20' }]}>
                                                     <MaterialCommunityIcons name="file-pdf-box" size={40} color="#E53935" />
                                                 </View>
@@ -179,7 +173,7 @@ export const MessageItemComponent = ({ item, onLongPress, onSwipeReply, onSwipeF
                                                 </View>
                                             </View>
                                         ) : (
-                                            <View style={styles.documentPreview}>
+                                            <View style={[styles.documentPreview, { backgroundColor: colors.backgroundSecondary }]}>
                                                 <View style={[styles.pdfIcon, { backgroundColor: colors.primary + '20' }]}>
                                                     <MaterialCommunityIcons name="file-document" size={40} color={colors.primary} />
                                                 </View>
@@ -259,7 +253,7 @@ export const MessageItemComponent = ({ item, onLongPress, onSwipeReply, onSwipeF
                                                 </View>
                                             </TouchableOpacity>
                                         ) : item.file_type === 'application/pdf' ? (
-                                            <View style={styles.documentPreview}>
+                                            <View style={[styles.documentPreview, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
                                                 <View style={[styles.pdfIcon, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
                                                     <MaterialCommunityIcons name="file-pdf-box" size={40} color="#FF6B6B" />
                                                 </View>
@@ -271,7 +265,7 @@ export const MessageItemComponent = ({ item, onLongPress, onSwipeReply, onSwipeF
                                                 </View>
                                             </View>
                                         ) : (
-                                            <View style={styles.documentPreview}>
+                                            <View style={[styles.documentPreview, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
                                                 <View style={[styles.pdfIcon, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
                                                     <MaterialCommunityIcons name="file-document" size={40} color="white" />
                                                 </View>
@@ -413,14 +407,16 @@ const styles = StyleSheet.create({
     replyContainer: {
         flexDirection: 'row',
         padding: 8,
-        borderRadius: 12,
+        borderRadius: 8,
         marginBottom: 8,
         overflow: 'hidden',
+        borderLeftWidth: 3,
     },
     replyBar: {
         width: 3,
-        borderRadius: 2,
+        height: '100%',
         marginRight: 8,
+        borderRadius: 3,
     },
     replySender: {
         fontWeight: '700',
@@ -459,7 +455,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         padding: 12,
         borderRadius: 8,
-        backgroundColor: 'rgba(0,0,0,0.05)',
         maxWidth: 250,
     },
     pdfIcon: {

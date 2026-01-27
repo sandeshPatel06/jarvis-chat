@@ -50,7 +50,7 @@ export const ForwardMessageModal = ({ visible, onClose, message, chats, onForwar
 
         return (
             <TouchableOpacity
-                style={[styles.chatItem, { borderBottomColor: colors.itemSeparator }]}
+                style={[styles.chatItem, { borderBottomColor: colors.border }]}
                 onPress={() => toggleChatSelection(item.id)}
             >
                 <View style={styles.chatInfo}>
@@ -66,7 +66,7 @@ export const ForwardMessageModal = ({ visible, onClose, message, chats, onForwar
                 </View>
                 <View style={[
                     styles.checkbox,
-                    { borderColor: isSelected ? colors.primary : colors.itemSeparator },
+                    { borderColor: isSelected ? colors.primary : colors.border },
                     isSelected && { backgroundColor: colors.primary }
                 ]}>
                     {isSelected && <MaterialCommunityIcons name="check" size={16} color="white" />}
@@ -84,7 +84,7 @@ export const ForwardMessageModal = ({ visible, onClose, message, chats, onForwar
         >
             <View style={[styles.container, { backgroundColor: colors.background }]}>
                 {/* Header */}
-                <View style={[styles.header, { borderBottomColor: colors.itemSeparator }]}>
+                <View style={[styles.header, { borderBottomColor: colors.border }]}>
                     <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
                         <MaterialCommunityIcons name="close" size={24} color={colors.text} />
                     </TouchableOpacity>
@@ -113,7 +113,7 @@ export const ForwardMessageModal = ({ visible, onClose, message, chats, onForwar
 
                 {/* Forward Button */}
                 {selectedChats.length > 0 && (
-                    <View style={[styles.footer, { backgroundColor: colors.background, borderTopColor: colors.itemSeparator }]}>
+                    <View style={[styles.footer, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
                         <TouchableOpacity onPress={handleForward} style={styles.forwardButtonContainer}>
                             <LinearGradient
                                 colors={[colors.primary, colors.secondary]}

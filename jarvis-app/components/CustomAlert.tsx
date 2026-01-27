@@ -67,7 +67,7 @@ export default function CustomAlert() {
                     style={[
                         styles.alertContainer,
                         {
-                            backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF',
+                            backgroundColor: colors.card,
                             opacity: fadeAnim,
                             transform: [{ scale: scaleAnim }]
                         }
@@ -75,25 +75,25 @@ export default function CustomAlert() {
                 >
                     <View style={styles.content}>
                         <Text style={[styles.title, { color: colors.text }]}>{alert.title}</Text>
-                        <Text style={[styles.message, { color: isDark ? '#8E8E93' : '#3C3C43' }]}>{alert.message}</Text>
+                        <Text style={[styles.message, { color: colors.textSecondary }]}>{alert.message}</Text>
                     </View>
 
-                    <View style={[styles.buttonContainer, { borderTopColor: colors.itemSeparator }]}>
+                    <View style={[styles.buttonContainer, { borderTopColor: colors.border }]}>
                         {buttons.map((button, index) => (
                             <TouchableOpacity
                                 key={index}
                                 style={[
                                     styles.button,
-                                    index > 0 && { borderLeftColor: colors.itemSeparator, borderLeftWidth: StyleSheet.hairlineWidth },
-                                    buttons.length > 2 && { borderLeftWidth: 0, borderTopWidth: index > 0 ? StyleSheet.hairlineWidth : 0, borderTopColor: colors.itemSeparator }
+                                    index > 0 && { borderLeftColor: colors.border, borderLeftWidth: StyleSheet.hairlineWidth },
+                                    buttons.length > 2 && { borderLeftWidth: 0, borderTopWidth: index > 0 ? StyleSheet.hairlineWidth : 0, borderTopColor: colors.border }
                                 ]}
                                 onPress={() => handleButtonPress(button.onPress)}
                             >
                                 <Text
                                     style={[
                                         styles.buttonText,
-                                        { color: button.style === 'destructive' ? '#FF453A' : colors.primary },
-                                        button.style === 'cancel' && { fontWeight: '400', color: isDark ? '#FFFFFF' : '#000000' }
+                                        { color: button.style === 'destructive' ? colors.error : colors.primary },
+                                        button.style === 'cancel' && { fontWeight: '400', color: colors.textSecondary }
                                     ]}
                                 >
                                     {button.text}

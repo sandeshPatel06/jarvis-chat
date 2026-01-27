@@ -20,26 +20,29 @@ export default function SettingsScreen() {
         router.replace('/auth/login');
     };
 
-    const SettingCard = ({ icon, title, subtitle, onPress, color = colors.primary, badge }: any) => (
-        <TouchableOpacity
-            style={[styles.card, { backgroundColor: isDark ? colors.inputBackground : '#fff' }]}
-            onPress={onPress}
-        >
-            <View style={[styles.iconBox, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}>
-                <FontAwesome name={icon} size={20} color={color} />
-            </View>
-            <View style={styles.cardTextContainer}>
-                <Text style={[styles.cardTitle, { color: colors.text }]}>{title}</Text>
-                {subtitle && <Text style={styles.cardSubtitle}>{subtitle}</Text>}
-            </View>
-            {badge && (
-                <View style={[styles.badge, { backgroundColor: colors.primary }]}>
-                    <Text style={styles.badgeText}>{badge}</Text>
+    const SettingCard = ({ icon, title, subtitle, onPress, badge }: any) => {
+        const { colors } = useAppTheme();
+        return (
+            <TouchableOpacity
+                style={[styles.card, { backgroundColor: colors.card }]}
+                onPress={onPress}
+            >
+                <View style={[styles.iconBox, { backgroundColor: colors.backgroundSecondary }]}>
+                    <FontAwesome name={icon} size={20} color={colors.primary} />
                 </View>
-            )}
-            <FontAwesome name="chevron-right" size={14} color={colors.tabIconDefault} style={styles.chevron} />
-        </TouchableOpacity>
-    );
+                <View style={styles.cardTextContainer}>
+                    <Text style={[styles.cardTitle, { color: colors.text }]}>{title}</Text>
+                    {subtitle && <Text style={styles.cardSubtitle}>{subtitle}</Text>}
+                </View>
+                {badge && (
+                    <View style={[styles.badge, { backgroundColor: colors.primary }]}>
+                        <Text style={styles.badgeText}>{badge}</Text>
+                    </View>
+                )}
+                <FontAwesome name="chevron-right" size={14} color={colors.tabIconDefault} style={styles.chevron} />
+            </TouchableOpacity>
+        );
+    };
 
     return (
         <ScreenWrapper style={styles.container} edges={['top', 'left', 'right']}>
@@ -134,9 +137,12 @@ export default function SettingsScreen() {
                     />
                 </View>
 
-                <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-                    <FontAwesome name="sign-out" size={18} color="#FF453A" style={{ marginRight: 10 }} />
-                    <Text style={styles.logoutText}>Log out</Text>
+                <TouchableOpacity
+                    style={[styles.logoutButton, { backgroundColor: colors.error + '20' }]}
+                    onPress={handleLogout}
+                >
+                    <FontAwesome name="sign-out" size={18} color={colors.error} style={{ marginRight: 10 }} />
+                    <Text style={[styles.logoutText, { color: colors.error }]}>Log out</Text>
                 </TouchableOpacity>
 
                 <View style={styles.footer}>
@@ -156,7 +162,7 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         paddingHorizontal: 20,
-        paddingTop: 10,
+        paddingTop: 30,
     },
     pageTitle: {
         fontSize: 32,
@@ -168,6 +174,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         padding: 20,
+        marginTop:-30,
         borderRadius: 24,
         marginBottom: 30,
         elevation: 8,
@@ -282,11 +289,9 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         padding: 18,
         borderRadius: 20,
-        backgroundColor: 'rgba(255, 69, 58, 0.1)',
         marginTop: 10,
     },
     logoutText: {
-        color: '#FF453A',
         fontSize: 17,
         fontWeight: '700',
     },

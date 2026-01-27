@@ -33,9 +33,18 @@ export const initDatabase = async () => {
                 reactions TEXT,
                 reply_to_json TEXT,
                 is_unsent INTEGER DEFAULT 0,
+                file TEXT,
+                file_type TEXT,
+                file_name TEXT,
                 FOREIGN KEY (conversation_id) REFERENCES conversations (id)
             );
         `);
+
+        // Safely add columns to existing installations
+        try { await database.execAsync('ALTER TABLE messages ADD COLUMN file TEXT;'); } catch (e) { }
+        try { await database.execAsync('ALTER TABLE messages ADD COLUMN file_type TEXT;'); } catch (e) { }
+        try { await database.execAsync('ALTER TABLE messages ADD COLUMN file_name TEXT;'); } catch (e) { }
+
         console.log('Database initialized');
     } catch (error) {
         console.error('Error initializing database:', error);
@@ -58,7 +67,7 @@ export const saveMessage = async (message: Message, conversationId: string, isUn
     const database = await openDatabase();
     try {
         await database.runAsync(
-            `INSERT OR REPLACE INTO messages (id, conversation_id, text, sender, timestamp, is_read, is_delivered, reactions, reply_to_json, is_unsent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT OR REPLACE INTO messages (id, conversation_id, text, sender, timestamp, is_read, is_delivered, reactions, reply_to_json, is_unsent, file, file_type, file_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 message.id,
                 conversationId,
@@ -70,6 +79,9 @@ export const saveMessage = async (message: Message, conversationId: string, isUn
                 JSON.stringify(message.reactions || []),
                 JSON.stringify(message.reply_to || null),
                 isUnsent ? 1 : 0,
+                message.file || '',
+                message.file_type || '',
+                message.file_name || '',
             ]
         );
     } catch (error) {
@@ -112,7 +124,10 @@ export const getMessages = async (conversationId: string): Promise<Message[]> =>
             isDelivered: !!row.is_delivered,
             reactions: JSON.parse(row.reactions || '[]'),
             reply_to: JSON.parse(row.reply_to_json || 'null'),
-            isUnsent: !!row.is_unsent
+            isUnsent: !!row.is_unsent,
+            file: row.file || null,
+            file_type: row.file_type || null,
+            file_name: row.file_name || null
         }));
     } catch (error) {
         console.error('Error getting messages:', error);

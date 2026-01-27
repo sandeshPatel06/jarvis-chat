@@ -5,6 +5,7 @@ import { useVideoPlayer, VideoView } from 'expo-video';
 import { WebView } from 'react-native-webview';
 import * as Sharing from 'expo-sharing';
 import * as ScreenOrientation from 'expo-screen-orientation';
+import { useAppTheme } from '@/hooks/useAppTheme';
 
 interface MediaViewerProps {
     visible: boolean;
@@ -17,6 +18,7 @@ interface MediaViewerProps {
 const { width, height } = Dimensions.get('window');
 
 export const MediaViewer: React.FC<MediaViewerProps> = ({ visible, mediaUri, mediaType, fileName, onClose }) => {
+    const { colors } = useAppTheme();
     const player = useVideoPlayer(mediaUri || '', (p) => {
         p.loop = false;
         if (visible && mediaType === 'video') {
@@ -126,7 +128,7 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({ visible, mediaUri, med
                             <Text style={styles.documentText}>
                                 {fileName || 'Document'}
                             </Text>
-                            <TouchableOpacity style={styles.openButton} onPress={handleOpenExternal}>
+                            <TouchableOpacity style={[styles.openButton, { backgroundColor: colors.primary }]} onPress={handleOpenExternal}>
                                 <Text style={styles.openButtonText}>Open with External App</Text>
                             </TouchableOpacity>
                         </View>
@@ -173,7 +175,9 @@ const styles = StyleSheet.create({
     },
     headerButtons: {
         flexDirection: 'row',
-        gap: 12,
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flex: 1,
     },
     headerButton: {
         backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -214,7 +218,7 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     openButton: {
-        backgroundColor: '#007AFF',
+        // backgroundColor: '#007AFF', // This line is removed as per the instruction to apply themed colors
         paddingHorizontal: 24,
         paddingVertical: 12,
         borderRadius: 8,

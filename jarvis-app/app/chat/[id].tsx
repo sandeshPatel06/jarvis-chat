@@ -21,6 +21,7 @@ import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenWrapper } from '@/components/ScreenWrapper';
 import { ChatHeader, ChatInput, MessageItem, ForwardMessageModal } from '@/components/chat';
+import * as Clipboard from 'expo-clipboard';
 
 export default function ChatDetailScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
@@ -176,6 +177,15 @@ export default function ChatDetailScreen() {
         }
     };
 
+    const handleCopyOption = async () => {
+        if (selectedMessage) {
+            await Clipboard.setStringAsync(selectedMessage.text);
+            setModalVisible(false);
+            setSelectedMessage(null);
+            // Optional: show a small toast if available, or just close modal
+        }
+    };
+
     const handleEditOption = () => {
         if (selectedMessage) {
             const now = new Date();
@@ -297,10 +307,10 @@ export default function ChatDetailScreen() {
                 onRequestClose={() => setChatOptionsVisible(false)}
             >
                 <Pressable style={styles.modalOverlay} onPress={() => setChatOptionsVisible(false)}>
-                    <View style={[styles.chatOptionsContainer, { backgroundColor: colors.background, borderColor: colors.itemSeparator }]}>
+                    <View style={[styles.chatOptionsContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
                         <TouchableOpacity onPress={handleDeleteChat} style={styles.menuOption}>
-                            <Text style={{ color: 'red', fontSize: 16 }}>Delete Chat</Text>
-                            <MaterialCommunityIcons name="trash-can-outline" size={20} color="red" />
+                            <Text style={{ color: colors.error, fontSize: 16 }}>Delete Chat</Text>
+                            <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.error} />
                         </TouchableOpacity>
                     </View>
                 </Pressable>
@@ -331,7 +341,7 @@ export default function ChatDetailScreen() {
                                 ) : (
                                     <View style={styles.emojiPickerContainer}>
                                         <TextInput
-                                            style={[styles.emojiInput, { color: colors.text, borderColor: colors.itemSeparator }]}
+                                            style={[styles.emojiInput, { color: colors.text, borderColor: colors.border }]}
                                             placeholder="Type or paste emoji..."
                                             placeholderTextColor={colors.tabIconDefault}
                                             value={customEmoji}
@@ -348,29 +358,33 @@ export default function ChatDetailScreen() {
                                     </View>
                                 )}
 
-                                <View style={{ height: 1, backgroundColor: colors.itemSeparator, marginVertical: 10 }} />
+                                <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 10 }} />
 
-                                {selectedMessage.sender === 'me' && (
+                                {selectedMessage && (
                                     <>
                                         <TouchableOpacity onPress={handleReplyOption} style={styles.menuOption}>
                                             <Text style={{ color: colors.text, fontSize: 16 }}>Reply</Text>
                                             <MaterialCommunityIcons name="reply" size={20} color={colors.text} />
                                         </TouchableOpacity>
-                                        <TouchableOpacity onPress={handleEditOption} style={styles.menuOption}>
-                                            <Text style={{ color: colors.text, fontSize: 16 }}>Edit</Text>
-                                            <MaterialCommunityIcons name="pencil-outline" size={20} color={colors.text} />
+
+                                        <TouchableOpacity onPress={handleCopyOption} style={styles.menuOption}>
+                                            <Text style={{ color: colors.text, fontSize: 16 }}>Copy</Text>
+                                            <MaterialCommunityIcons name="content-copy" size={20} color={colors.text} />
                                         </TouchableOpacity>
-                                        <TouchableOpacity onPress={handleDeleteOption} style={styles.menuOption}>
-                                            <Text style={{ color: 'red', fontSize: 16 }}>Delete</Text>
-                                            <MaterialCommunityIcons name="trash-can-outline" size={20} color="red" />
-                                        </TouchableOpacity>
+
+                                        {selectedMessage.sender === 'me' && (
+                                            <>
+                                                <TouchableOpacity onPress={handleEditOption} style={styles.menuOption}>
+                                                    <Text style={{ color: colors.text, fontSize: 16 }}>Edit</Text>
+                                                    <MaterialCommunityIcons name="pencil-outline" size={20} color={colors.text} />
+                                                </TouchableOpacity>
+                                                <TouchableOpacity onPress={handleDeleteOption} style={styles.menuOption}>
+                                                    <Text style={{ color: colors.error, fontSize: 16 }}>Delete</Text>
+                                                    <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.error} />
+                                                </TouchableOpacity>
+                                            </>
+                                        )}
                                     </>
-                                )}
-                                {selectedMessage.sender !== 'me' && (
-                                    <TouchableOpacity onPress={handleReplyOption} style={styles.menuOption}>
-                                        <Text style={{ color: colors.text, fontSize: 16 }}>Reply</Text>
-                                        <MaterialCommunityIcons name="reply" size={20} color={colors.text} />
-                                    </TouchableOpacity>
                                 )}
                                 <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.menuOption}>
                                     <Text style={{ color: colors.text, fontSize: 16 }}>Cancel</Text>
@@ -389,7 +403,7 @@ export default function ChatDetailScreen() {
                 <FlatList
                     ref={flatListRef}
                     data={chat.messages} // Messages are now stored Newest -> Oldest
-                    keyExtractor={(item) => item.id}
+                    keyExtractor={(item) => item.id.toString()}
                     renderItem={renderMessage}
                     inverted={true} // Inverted list: Bottom is Index 0 (Newest)
                     style={{ flex: 1 }}
@@ -432,7 +446,7 @@ const styles = StyleSheet.create({
     listContent: { padding: 15 },
     modalOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)',
+        backgroundColor: 'rgba(0,0,0,0.4)',
         justifyContent: 'center',
         alignItems: 'center',
     },

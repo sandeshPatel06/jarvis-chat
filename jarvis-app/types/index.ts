@@ -17,6 +17,8 @@ export interface User {
     storage_auto_download_media?: boolean;
     chat_wallpaper?: string;
     app_language?: string;
+    last_seen?: string | Date; // Backend should send this
+    is_online?: boolean;
 }
 
 export interface Message {
@@ -47,7 +49,9 @@ export interface Chat {
     unreadCount: number;
     messages: Message[];
     status?: string;
-    hasMore?: boolean; // New
+    hasMore?: boolean;
+    last_seen?: string | Date;
+    is_online?: boolean;
 }
 
 export interface Call {

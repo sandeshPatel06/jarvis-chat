@@ -5,7 +5,7 @@ import { useAppTheme } from '@/hooks/useAppTheme';
 import { api } from '@/services/api';
 import { useStore } from '@/store';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { Stack, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Image, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
@@ -88,39 +88,32 @@ export default function ProfileScreen() {
 
     return (
         <ScreenWrapper style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'left', 'right', 'bottom']}>
-            <Stack.Screen options={{
-                headerShown: true,
-                title: "Edit Profile",
-                headerStyle: { backgroundColor: colors.background },
-                headerTintColor: colors.text,
-                headerTitleStyle: { fontWeight: 'bold' },
-                headerRight: () => (
-                    <TouchableOpacity onPress={handleSave} disabled={saving} style={{ paddingHorizontal: 10 }}>
-                        {saving ? (
-                            <ActivityIndicator size="small" color={colors.accent} />
-                        ) : (
-                            <Text style={{ color: colors.accent, fontWeight: 'bold', fontSize: 16 }}>
-                                Save
-                            </Text>
-                        )}
-                    </TouchableOpacity>
-                )
-            }} />
+            <View style={[styles.header, { borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }]}>
+                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                    <FontAwesome name="user-circle" size={18} color={colors.primary} />
+                </TouchableOpacity>
+                <Text style={[styles.headerTitle, { color: colors.text }]}>Profile</Text>
+                <TouchableOpacity onPress={handleSave} disabled={saving} style={styles.headerRight}>
+                    {saving ? (
+                        <ActivityIndicator size="small" color={colors.accent} />
+                    ) : (
+                        <Text style={{ color: colors.primary, fontWeight: 'bold', fontSize: 16 }}>
+                            Save
+                        </Text>
+                    )}
+                </TouchableOpacity>
+            </View>
 
             <View style={styles.content}>
                 <View style={styles.avatarContainer}>
                     <TouchableOpacity onPress={pickImage} activeOpacity={0.8}>
-                        <Image
-                            source={image ? { uri: image } : (avatarUrl ? { uri: avatarUrl } : require('@/assets/images/default-avatar.png'))}
-                            style={[styles.avatar, { borderColor: colors.accent, borderWidth: 2 }]}
-                        />
-                        <View style={[styles.cameraButton, { backgroundColor: colors.accent }]}>
+                        <View style={[styles.cameraButton, { backgroundColor: colors.primary }]}>
                             <FontAwesome name="camera" size={18} color="white" />
                         </View>
                     </TouchableOpacity>
                 </View>
 
-                <View style={[styles.card, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)' }]}>
+                <View style={[styles.card, { backgroundColor: colors.cardSecondary }]}>
                     <View style={styles.inputGroup}>
                         <View style={styles.iconContainer}>
                             <FontAwesome name="user" size={20} color={colors.accent} />
@@ -178,7 +171,30 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     content: {
-        padding: 20,
+        padding: 16,
+    },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 15,
+        paddingTop: 20,
+        paddingBottom: 12,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+    },
+    backButton: {
+        padding: 5,
+        width: 40,
+    },
+    headerTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginVertical: 10,
+    },
+    headerRight: {
+        position: 'absolute',
+        right: 15,
+        top: 25,
     },
     avatarContainer: {
         alignItems: 'center',

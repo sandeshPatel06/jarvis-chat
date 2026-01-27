@@ -1,5 +1,5 @@
 import { Directory, File, Paths } from 'expo-file-system';
-import * as FileSystem from 'expo-file-system'; // Use root for downloadAsync
+import * as FileSystem from 'expo-file-system/legacy';
 
 const MEDIA_URL = process.env.EXPO_PUBLIC_MEDIA_URL;
 
@@ -53,10 +53,9 @@ export const downloadMedia = async (remoteUrl: string, messageId: string): Promi
             return file.uri;
         }
 
-        // Download the file using legacy FileSystem API (new File API doesn't have downloadAsync)
-        console.log('[Media] Downloading from:', remoteUrl, 'to:', file.uri);
-
         try {
+            // Use the legacy downloadAsync for now as the new API is different
+            console.log('[Media] Downloading from:', remoteUrl, 'to:', file.uri);
             const result = await FileSystem.downloadAsync(remoteUrl, file.uri);
             if (result.status === 200) {
                 console.log('[Media] Download successful:', file.uri);

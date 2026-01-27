@@ -15,6 +15,7 @@ import { useStore } from '@/store';
 import CustomToast from '@/components/CustomToast';
 import CustomAlert from '@/components/CustomAlert';
 import IncomingCallModal from '@/components/IncomingCallModal';
+import { requestNotificationPermissions, setForegroundNotificationHandler } from '@/utils/notifications';
 
 
 
@@ -43,18 +44,9 @@ export default function RootLayout() {
   }, [error]);
 
   useEffect(() => {
-    // Set up notifications handler safely
+    // Set up notifications handler using centralized utility
     try {
-      const Notifications = require('expo-notifications');
-      Notifications.setNotificationHandler({
-        handleNotification: async () => ({
-          shouldShowAlert: true,
-          shouldPlaySound: true,
-          shouldSetBadge: false,
-          shouldShowBanner: true,
-          shouldShowList: true,
-        }),
-      });
+      setForegroundNotificationHandler();
     } catch (error) {
       console.warn('Failed to set notification handler:', error);
     }
@@ -116,6 +108,10 @@ function RootLayoutNav() {
       router.replace('/auth/login');
     } else if (token && inAuthGroup) {
       router.replace('/(tabs)');
+    }
+
+    if (token) {
+      requestNotificationPermissions();
     }
   }, [token, segments, hasHydrated]);
 

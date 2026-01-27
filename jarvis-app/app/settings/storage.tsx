@@ -24,10 +24,10 @@ export default function StorageSettingsScreen() {
         <ScreenWrapper style={styles.container} edges={['top', 'left', 'right', 'bottom']}>
             <View style={[styles.header, { borderBottomColor: colors.itemSeparator }]}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <FontAwesome name="chevron-left" size={18} color={colors.primary} />
+                    <FontAwesome name="database" size={18} color={colors.primary} />
                 </TouchableOpacity>
                 <Text style={[styles.headerTitle, { color: colors.text }]}>Storage and Data</Text>
-                <View style={{ width: 40 }} />
+                {/* <View style={{ width: 40 }} /> */}
             </View>
 
             <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -69,9 +69,9 @@ export default function StorageSettingsScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 15, paddingTop: 20, paddingBottom: 12, borderBottomWidth: StyleSheet.hairlineWidth },
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 15, paddingTop: 20, paddingBottom: 12, borderBottomWidth: StyleSheet.hairlineWidth },
     backButton: { padding: 5, width: 40 },
-    headerTitle: { fontSize: 18, fontWeight: 'bold' },
+    headerTitle: { fontSize: 18, fontWeight: 'bold', marginVertical: 10 },
     scrollContent: { padding: 16 },
     section: { marginBottom: 24 },
     sectionTitle: { fontSize: 14, fontWeight: 'bold', marginBottom: 8, marginLeft: 4, textTransform: 'uppercase' },

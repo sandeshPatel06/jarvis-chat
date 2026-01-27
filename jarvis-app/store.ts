@@ -13,6 +13,7 @@ import * as KeepAwake from 'expo-keep-awake';
 import * as Haptics from 'expo-haptics';
 import * as Audio from 'expo-audio';
 import * as ImagePicker from 'expo-image-picker';
+import { scheduleLocalNotification } from './utils/notifications';
 
 // Custom storage wrapper for Zustand to use SecureStore for sensitive data
 const secureStorage = {
@@ -380,7 +381,7 @@ export const useStore = create<AppState>()(
                             shouldPlayInBackground: true,
                         });
 
-                        const stream = await webrtcService.startLocalStream(true); // Default video for now
+                        const stream = await webrtcService.startLocalStream(incomingCall.isVideo); // Respect isVideo flag
                         set((state) => ({
                             callState: { ...state.callState, localStream: stream }
                         }));
@@ -514,6 +515,19 @@ export const useStore = create<AppState>()(
                         get().showToast('success', 'Call Connected', 'Remote answered');
                         stopRingtone(); // Stop dialing sound
                         await webrtcService.setRemoteDescription(message.answer);
+
+                        // Process buffered candidates for the caller side
+                        const { bufferedCandidates } = get().callState;
+                        if (bufferedCandidates.length > 0) {
+                            console.log(`[Signaling] Caller processing ${bufferedCandidates.length} buffered ICE candidates after Answer`);
+                            for (const candidate of bufferedCandidates) {
+                                await webrtcService.addIceCandidate(candidate);
+                            }
+                            // Clear buffered candidates
+                            set((state) => ({
+                                callState: { ...state.callState, bufferedCandidates: [] }
+                            }));
+                        }
                     } else if (message.type === 'webrtc_ice_candidate') {
                         console.log('[Signaling] ICE Candidate received');
                         const pc = webrtcService.peerConnection;
@@ -797,7 +811,12 @@ export const useStore = create<AppState>()(
                 },
 
                 markRead: (chatId, messageId) => {
-                    const { socket } = get();
+                    const { socket, user } = get();
+                    // Respect privacy setting for read receipts
+                    if (user?.privacy_read_receipts === false) {
+                        console.log('[Store] Read receipts disabled, skipping mark_read');
+                        return;
+                    }
                     if (socket && socket.readyState === WebSocket.OPEN) {
                         socket.send(JSON.stringify({
                             type: 'mark_read',
@@ -843,20 +862,30 @@ export const useStore = create<AppState>()(
                 setChats: (chats) => set({ chats }),
                 addMessage: (message) => set((state) => {
                     const chatId = (message.conversation_id || message.conversation)?.toString();
-                    console.log('[addMessage] Attempting to add message:', { id: message.id, chatId, hasFile: !!message.file, file: message.file });
+                    const msgId = message.id.toString(); // Ensure ID is a string for comparison
+                    console.log('[addMessage] Attempting to add message:', { id: msgId, chatId });
+
                     return {
                         chats: state.chats.map((chat) => {
                             if (chat.id === chatId) {
-                                // Deduplicate
-                                if (chat.messages.some(m => m.id === message.id)) {
-                                    console.log('[addMessage] Duplicate detected, skipping:', message.id);
+                                // Check if this is a temp message being replaced by a real one
+                                const tempIdMatch = chat.messages.findIndex(m => m.id.startsWith('temp_') && m.text === message.text && m.sender === 'me');
+
+                                let newMessages = [...chat.messages];
+
+                                if (tempIdMatch !== -1) {
+                                    newMessages.splice(tempIdMatch, 1, { ...message, id: msgId });
+                                } else if (!chat.messages.some(m => m.id.toString() === msgId)) {
+                                    console.log('[addMessage] Adding new message to chat:', chatId);
+                                    newMessages = [{ ...message, id: msgId }, ...chat.messages];
+                                } else {
+                                    console.log('[addMessage] Duplicate detected, skipping:', msgId);
                                     return chat;
                                 }
-                                console.log('[addMessage] Adding new message to chat:', chatId);
+
                                 return {
                                     ...chat,
-                                    // Prepend new message (Newest -> Oldest)
-                                    messages: [message, ...chat.messages],
+                                    messages: newMessages,
                                     lastMessage: message.text,
                                     lastMessageTime: new Date(message.timestamp)
                                 };
@@ -894,6 +923,18 @@ export const useStore = create<AppState>()(
                                 setTimeout(() => {
                                     get().setTyping(conversation_id, null);
                                 }, 3000);
+                            } else if (data.type === 'user_status') {
+                                const { username, is_online, last_seen } = data;
+                                console.log('[WS] Status update:', { username, is_online, last_seen });
+                                set((state) => ({
+                                    chats: state.chats.map((chat) => {
+                                        // Participant name is usually the other person's username in 1-1
+                                        if (chat.name === username) {
+                                            return { ...chat, is_online, last_seen };
+                                        }
+                                        return chat;
+                                    })
+                                }));
                             } else if (data.type === 'webrtc_offer' || data.type === 'webrtc_answer' || data.type === 'webrtc_ice_candidate' || data.type === 'call_ended') {
                                 await get().handleSignalingMessage(data);
                             } else if (data.type === 'message_read') {
@@ -958,29 +999,23 @@ export const useStore = create<AppState>()(
 
                                 // Reaction Notification
                                 if (get().activeChatId !== conversation_id.toString()) {
-                                    try {
-                                        const Notifications = require('expo-notifications');
-                                        const chat = get().chats.find(c => c.id === conversation_id.toString());
-                                        const senderName = chat?.name || 'Someone';
+                                    const chat = get().chats.find(c => c.id === conversation_id.toString());
+                                    const senderName = chat?.name || 'Someone';
 
-                                        Notifications.scheduleNotificationAsync({
-                                            content: {
-                                                title: `Jarvis - New Reaction from ${senderName}`,
-                                                body: `${reactions[0]} to your message`,
-                                                data: { chatId: conversation_id },
-                                            },
-                                            trigger: null,
-                                        });
-                                    } catch (error) {
-                                    }
+                                    scheduleLocalNotification(
+                                        `Jarvis - New Reaction from ${senderName}`,
+                                        `${reactions[0]} to your message`,
+                                        { chatId: conversation_id }
+                                    );
                                 }
                             } else if (data.message) {
                                 const msg = data.message;
+                                msg.id = msg.id.toString();
                                 msg.timestamp = new Date(msg.timestamp);
                                 msg.isRead = msg.is_read || false;
                                 msg.isDelivered = msg.is_delivered || false;
                                 // Handle backend inconsistency: conversation vs conversation_id
-                                msg.conversation_id = msg.conversation_id || msg.conversation;
+                                msg.conversation_id = (msg.conversation_id || msg.conversation)?.toString();
 
                                 // Download media file locally if present (non-blocking)
                                 if (msg.file) {
@@ -1058,25 +1093,17 @@ export const useStore = create<AppState>()(
                                             )
                                         }));
 
-                                        try {
-                                            const Notifications = require('expo-notifications');
-
-                                            // Format body
-                                            let body = msg.text;
-                                            if (msg.reply_to) {
-                                                body = `Replying to you: ${msg.text}`;
-                                            }
-
-                                            Notifications.scheduleNotificationAsync({
-                                                content: {
-                                                    title: `Jarvis - New Message from ${senderUsername}`,
-                                                    body: body,
-                                                    data: { chatId: msg.conversation_id },
-                                                },
-                                                trigger: null,
-                                            });
-                                        } catch (error) {
+                                        // Format body
+                                        let body = msg.text;
+                                        if (msg.reply_to) {
+                                            body = `Replying to you: ${msg.text}`;
                                         }
+
+                                        scheduleLocalNotification(
+                                            `Jarvis - New Message from ${senderUsername}`,
+                                            body,
+                                            { chatId: msg.conversation_id }
+                                        );
                                     }
                                 }
 
@@ -1092,13 +1119,14 @@ export const useStore = create<AppState>()(
                         console.error('[WS] Error:', e);
                     };
 
-                    ws.onclose = (e) => {
-                        console.log('[WS] Disconnected:', e.reason);
+                    ws.onclose = () => {
+                        console.log('[WS] Disconnected');
                         set({ socket: null });
                     };
 
                     set({ socket: ws });
                 },
+
                 fetchCalls: async () => {
                     const { token } = get();
                     if (!token) return;
@@ -1109,13 +1137,26 @@ export const useStore = create<AppState>()(
                         console.error('Fetch calls failed', e);
                     }
                 },
+
                 fetchChats: async () => {
                     const { token } = get();
 
-                    // Load from DB first
                     const localChats = await database.getConversations();
                     if (localChats.length > 0) {
-                        set({ chats: localChats });
+                        set((state) => {
+                            const merged = localChats.map(local => {
+                                const existing = state.chats.find(c => c.id === local.id);
+                                if (existing && existing.messages.length > 0) {
+                                    return {
+                                        ...local,
+                                        messages: existing.messages,
+                                        hasMore: existing.hasMore
+                                    };
+                                }
+                                return local;
+                            });
+                            return { chats: merged };
+                        });
                     }
 
                     if (!token) return;
@@ -1125,18 +1166,38 @@ export const useStore = create<AppState>()(
 
                     try {
                         const conversations = await api.chat.getConversations(token);
-                        const chats: Chat[] = conversations.map((c: any) => ({
-                            id: c.id.toString(),
-                            name: c.participants.filter((p: any) => p.username !== get().user?.username)[0]?.username || 'Unknown',
-                            avatar: c.participants.filter((p: any) => p.username !== get().user?.username)[0]?.profile_picture || null,
-                            lastMessage: c.last_message?.text || '',
-                            lastMessageTime: c.last_message ? new Date(c.last_message.timestamp) : new Date(),
-                            unreadCount: c.unread_count || 0,
-                            messages: []
-                        }));
-                        set({ chats });
+                        const newChatsData = conversations.map((c: any) => {
+                            const participant = c.participants.find((p: any) => p.username !== get().user?.username);
+                            return {
+                                id: c.id.toString(),
+                                name: participant?.username || 'Unknown',
+                                avatar: participant?.profile_picture || null,
+                                last_seen: participant?.last_seen || null,
+                                is_online: participant?.is_online || false,
+                                lastMessage: c.last_message?.text || '',
+                                lastMessageTime: c.last_message ? new Date(c.last_message.timestamp) : new Date(),
+                                unreadCount: c.unread_count || 0,
+                                messages: []
+                            };
+                        });
+
+                        set((state) => {
+                            const mergedChats = newChatsData.map((apiChat: Chat) => {
+                                const existing = state.chats.find(c => c.id === apiChat.id);
+                                if (existing) {
+                                    return {
+                                        ...apiChat,
+                                        messages: existing.messages,
+                                        hasMore: existing.hasMore
+                                    };
+                                }
+                                return apiChat;
+                            });
+                            return { chats: mergedChats };
+                        });
 
                         // Save to DB
+                        const { chats } = get();
                         for (const chat of chats) {
                             await database.saveConversation(chat);
                         }
@@ -1144,19 +1205,11 @@ export const useStore = create<AppState>()(
                         console.error(e);
                     }
                 },
+
                 fetchMessages: async (chatId: string) => {
                     const { token } = get();
 
-                    // Load from DB first (Limited to latest 20 for speed)
-                    // We need to update database service to support limit/offset or just slice here
                     const localMessages = await database.getMessages(chatId);
-                    // Assume localMessages are still sorted Oldest->Newest from DB, we need to reverse them
-                    // Or better, update DB query. For now, let's just reverse locally if needed.
-                    // Actually, let's fetch ALL from DB for now but only render slice? 
-                    // No, for "lazy loading" we should probably trust the API for history if we want true pagination 
-                    // but for offline support we need DB.
-                    // Let's keep it simple: Load *everything* from local DB but sort Newest->Oldest
-
                     const unsent = (await database.getUnsentMessages()).filter((m: any) => m.conversation_id === chatId);
 
                     // Sort Newest -> Oldest
@@ -1164,9 +1217,27 @@ export const useStore = create<AppState>()(
 
                     // Initial View: valid data
                     set((state) => ({
-                        chats: state.chats.map((c) =>
-                            c.id === chatId ? { ...c, messages: allMessages, hasMore: true } : c
-                        )
+                        chats: state.chats.map((c) => {
+                            if (c.id === chatId) {
+                                const existing = c.messages || [];
+                                const merged = [...allMessages];
+                                const mergedIds = new Set(merged.map(m => m.id));
+
+                                existing.forEach(old => {
+                                    if (!mergedIds.has(old.id)) {
+                                        merged.push(old);
+                                    } else {
+                                        const index = merged.findIndex(m => m.id === old.id);
+                                        if (index !== -1 && old.file?.startsWith('file://')) {
+                                            merged[index].file = old.file;
+                                        }
+                                    }
+                                });
+                                merged.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+                                return { ...c, messages: merged, hasMore: true };
+                            }
+                            return c;
+                        })
                     }));
 
                     if (!token) return;
@@ -1175,15 +1246,12 @@ export const useStore = create<AppState>()(
 
                     try {
                         const limit = 20;
-                        // Fetch Page 0 (Latest 20)
                         const msgs = await api.chat.getMessages(token, chatId, limit, 0);
 
-                        // Process messages and download media files
                         const messages: Message[] = await Promise.all(msgs.map(async (m: any) => {
                             let fileUri = m.file;
                             let remoteFile = m.file;
 
-                            // Download media file if present
                             if (m.file) {
                                 const fullMediaUrl = getMediaUrl(m.file);
                                 if (fullMediaUrl) {
@@ -1210,23 +1278,38 @@ export const useStore = create<AppState>()(
                             };
                         }));
 
-                        // Sort Newest -> Oldest (Backend should already do this, but ensure consistency)
-                        // Backend is sending Newest first (qs.order_by('-timestamp'))
                         const hasMore = messages.length >= limit;
 
                         set((state) => ({
                             chats: state.chats.map((c) => {
                                 if (c.id === chatId) {
-                                    // Merge strategy: Overwrite with latest from server for the first page, keep unsent
-                                    // But we lose the "rest" of the local messages if we just overwrite.
-                                    // Ideally, we see if local messages connect with server messages.
-                                    // For simplicity in this task: Overwrite with fresh Page 0 + Unsent. 
-                                    // Users will "load more" to get history.
+                                    const merged = [...messages];
+                                    const mergedIds = new Set(merged.map(m => m.id));
 
-                                    const unsentMsgs = unsent.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+                                    unsent.forEach(u => {
+                                        if (!mergedIds.has(u.id)) {
+                                            merged.push(u);
+                                            mergedIds.add(u.id);
+                                        }
+                                    });
+
+                                    const existing = c.messages || [];
+                                    existing.forEach(old => {
+                                        const indexInMerged = merged.findIndex(m => m.id === old.id);
+                                        if (indexInMerged !== -1) {
+                                            if (old.file?.startsWith('file://')) {
+                                                merged[indexInMerged].file = old.file;
+                                            }
+                                        } else {
+                                            merged.push(old);
+                                        }
+                                    });
+
+                                    merged.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+
                                     return {
                                         ...c,
-                                        messages: [...unsentMsgs, ...messages],
+                                        messages: merged,
                                         hasMore: hasMore
                                     };
                                 }
@@ -1234,7 +1317,6 @@ export const useStore = create<AppState>()(
                             })
                         }));
 
-                        // Save to DB (Async)
                         for (const msg of messages) {
                             await database.saveMessage(msg, chatId);
                         }
@@ -1242,12 +1324,13 @@ export const useStore = create<AppState>()(
                         console.error(e);
                     }
                 },
+
                 loadMoreMessages: async (chatId: string) => {
                     const { token, chats } = get();
                     if (!token) return;
 
                     const chat = chats.find(c => c.id === chatId);
-                    if (!chat || chat.hasMore === false) return; // Stop if no more
+                    if (!chat || chat.hasMore === false) return;
 
                     const currentCount = chat.messages.length;
                     const limit = 20;
@@ -1265,7 +1348,6 @@ export const useStore = create<AppState>()(
                             let fileUri = m.file;
                             let remoteFile = m.file;
 
-                            // Download media file if present
                             if (m.file) {
                                 const fullMediaUrl = getMediaUrl(m.file);
                                 if (fullMediaUrl) {
@@ -1300,31 +1382,27 @@ export const useStore = create<AppState>()(
                             )
                         }));
 
-                        // Save to DB
                         for (const msg of messages) {
                             await database.saveMessage(msg, chatId);
                         }
-
                     } catch (e) {
                         console.error('Failed to load more messages', e);
                     }
                 },
+
                 forwardMessage: async (message: Message, chatIds: string[]) => {
                     const { socket } = get();
                     const netState = await NetInfo.fetch();
 
                     if (netState.isConnected && socket && socket.readyState === WebSocket.OPEN) {
-                        // Forward to each chat via WebSocket
                         for (const chatId of chatIds) {
                             socket.send(JSON.stringify({
                                 message: message.text,
                                 conversation_id: chatId,
-                                // If message has file, include it
                                 ...(message.file && { file: message.file, file_type: message.file_type })
                             }));
                         }
                     } else {
-                        // Offline: Save to local DB for each chat
                         for (const chatId of chatIds) {
                             const tempId = `temp_${Date.now()}_${chatId}`;
                             const newMessage: Message = {
