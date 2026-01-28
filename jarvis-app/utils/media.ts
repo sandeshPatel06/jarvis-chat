@@ -1,11 +1,13 @@
 import { Directory, File, Paths } from 'expo-file-system';
 import * as FileSystem from 'expo-file-system/legacy';
 
-const MEDIA_URL = process.env.EXPO_PUBLIC_MEDIA_URL;
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
-if (!MEDIA_URL) {
-    console.warn('Missing environment variable: EXPO_PUBLIC_MEDIA_URL');
+if (!BACKEND_URL) {
+    console.warn('Missing environment variable: EXPO_PUBLIC_BACKEND_URL');
 }
+
+const MEDIA_URL = BACKEND_URL ? `${BACKEND_URL}/media` : null;
 
 /**
  * Constructs a full media URL from a relative path

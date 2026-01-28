@@ -38,6 +38,7 @@ export interface Message {
         sender: string;
     };
     isUnsent?: boolean;
+    deleted_at?: string;
 }
 
 export interface Chat {
@@ -52,6 +53,8 @@ export interface Chat {
     hasMore?: boolean;
     last_seen?: string | Date;
     is_online?: boolean;
+    user_id?: number; // ID of the other user in 1-on-1 chats
+    is_deleted?: boolean;
 }
 
 export interface Call {

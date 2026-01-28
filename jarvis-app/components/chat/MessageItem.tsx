@@ -94,6 +94,17 @@ export const MessageItemComponent = ({ item, onLongPress, onSwipeReply, onSwipeF
         );
     };
 
+    if (item.deleted_at) {
+        const deletedDate = new Date(item.deleted_at);
+        return (
+            <View style={[styles.messageContainer, { alignSelf: 'center', marginVertical: 10 }]}>
+                <Text style={{ fontStyle: 'italic', color: colors.tabIconDefault, fontSize: 12 }}>
+                    This message was deleted by {item.sender === 'me' ? 'you' : item.sender} on {deletedDate.toLocaleDateString()} at {deletedDate.toLocaleTimeString()}
+                </Text>
+            </View>
+        );
+    }
+
     return (
         <Swipeable
             ref={swipeableRef}

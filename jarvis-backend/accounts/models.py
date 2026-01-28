@@ -39,3 +39,15 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.username
+
+class BlockedUser(models.Model):
+    blocker = models.ForeignKey(User, related_name='blocking', on_delete=models.CASCADE)
+    blocked = models.ForeignKey(User, related_name='blocked_by', on_delete=models.CASCADE)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('blocker', 'blocked')
+        ordering = ['-timestamp']
+    
+    def __str__(self):
+        return f"{self.blocker} blocked {self.blocked}"

@@ -19,9 +19,8 @@ class WebRTCService {
         iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
             { urls: 'stun:stun1.l.google.com:19302' },
-            { urls: 'stun:stun2.l.google.com:19302' },
-            { urls: 'stun:stun3.l.google.com:19302' },
-            { urls: 'stun:stun4.l.google.com:19302' },
+            { urls: 'stun:stun.ekiga.net' },
+            { urls: 'stun:stun.ideasip.com' },
             // Public TURN servers for better connectivity
             {
                 urls: 'turn:openrelay.metered.ca:80',
@@ -33,10 +32,16 @@ class WebRTCService {
                 username: 'openrelayproject',
                 credential: 'openrelayproject',
             },
+            { urls: 'stun:stun2.l.google.com:19302' },
+            { urls: 'stun:stun3.l.google.com:19302' },
+            { urls: 'stun:stun4.l.google.com:19302' },
         ],
         iceTransportPolicy: 'all' as RTCIceTransportPolicy,
         bundlePolicy: 'max-bundle' as RTCBundlePolicy,
         rtcpMuxPolicy: 'require' as RTCRtcpMuxPolicy,
+        // @ts-ignore
+        sdpSemantics: 'unified-plan',
+        iceCandidatePoolSize: 0, // Disable early candidate pooling to stabilize trickle
     };
 
     async startLocalStream(isVideo: boolean = true) {
@@ -51,6 +56,9 @@ class WebRTCService {
                 } : false,
             });
             this.localStream = stream;
+            stream.getTracks().forEach(track => {
+                console.log(`[WebRTC] Local track started: Kind=${track.kind}, ID=${track.id}, Enabled=${track.enabled}, Muted=${track.muted}`);
+            });
             return stream;
         } catch (error) {
             console.error('Error starting local stream:', error);
@@ -72,14 +80,18 @@ class WebRTCService {
         };
 
         (this.peerConnection as any).onconnectionstatechange = async (event: any) => {
-            console.log('[WebRTC] Connection State:', this.peerConnection?.connectionState);
+            console.log('[WebRTC] 🌐 Connection State:', this.peerConnection?.connectionState);
             if (this.peerConnection?.connectionState === 'failed') {
-                console.log('[WebRTC] Connection failed, attempting ICE restart...');
+                console.warn('[WebRTC] ⚠️ Connection failed, attempting ICE restart...');
                 const offer = await this.restartIce();
                 if (offer && this.onIceRestart) {
                     this.onIceRestart(offer);
                 }
             }
+        };
+
+        (this.peerConnection as any).onsignalingstatechange = () => {
+            console.log('[WebRTC] 📶 Signaling State Change:', this.peerConnection?.signalingState);
         };
 
         (this.peerConnection as any).oniceconnectionstatechange = (event: any) => {
@@ -94,7 +106,7 @@ class WebRTCService {
         };
 
         (this.peerConnection as any).ontrack = (event: any) => {
-            console.log('[WebRTC] ontrack event kind:', event.track?.kind, 'ID:', event.track?.id);
+            console.log(`[WebRTC] 🎵 ontrack event: Kind=${event.track?.kind}, ID=${event.track?.id}, Enabled=${event.track?.enabled}, Muted=${event.track?.muted}`);
 
             // Use the existing remoteStream or create a new one
             if (!this.remoteStream) {
@@ -104,13 +116,33 @@ class WebRTCService {
 
             // Ensure the track is added to our tracked stream
             if (event.track) {
-                event.track.enabled = true; // Force enable just in case
-                console.log(`[WebRTC] Adding ${event.track.kind} track to remote stream. Muted:`, event.track.muted);
-                this.remoteStream.addTrack(event.track);
+                // Clear existing tracks of the same kind to prevent "stale" tracks
+                // IMPORTANT: We remove from stream but DO NOT call track.stop() to avoid killing the underlying flow
+                this.remoteStream.getTracks().forEach(track => {
+                    if (track.kind === event.track.kind && track.id !== event.track.id) {
+                        console.log(`[WebRTC] Removing stale ${track.kind} track: ${track.id}`);
+                        this.remoteStream?.removeTrack(track);
+                    }
+                });
+
+                event.track.enabled = true; // Force enable
+
+                // Only add if not already present
+                const exists = this.remoteStream.getTracks().some(t => t.id === event.track.id);
+                if (!exists) {
+                    console.log(`[WebRTC] Attaching ${event.track.kind} track to remote stream`);
+                    this.remoteStream.addTrack(event.track);
+                } else {
+                    console.log(`[WebRTC] Track ${event.track.id} already attached`);
+                }
+
+                // Track state listener
+                event.track.onmute = () => console.log(`[WebRTC] Track ${event.track.id} (${event.track.kind}) muted`);
+                event.track.onunmute = () => console.log(`[WebRTC] Track ${event.track.id} (${event.track.kind}) unmuted`);
             }
 
-            console.log('[WebRTC] Remote stream updated, notifying callback. Track count:', this.remoteStream.getTracks().length);
             if (this.onRemoteStream) {
+                console.log(`[WebRTC] Notifying store of remote stream update. Tracks: ${this.remoteStream.getTracks().length}`);
                 this.onRemoteStream(this.remoteStream);
             }
         };

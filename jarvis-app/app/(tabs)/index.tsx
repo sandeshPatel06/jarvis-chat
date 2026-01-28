@@ -5,7 +5,7 @@ import { useStore } from '@/store';
 import { Chat } from '@/types';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { FlatList, Image, Pressable, StyleSheet, TextInput, TouchableOpacity, LayoutAnimation } from 'react-native';
 
@@ -21,17 +21,31 @@ export default function ChatsScreen() {
   const user = useStore((state) => state.user);
   const showAlert = useStore((state) => state.showAlert);
   const connectWebSocket = useStore((state) => state.connectWebSocket);
+  const params = useLocalSearchParams();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedChats, setSelectedChats] = useState<Set<string>>(new Set());
   const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
 
-  const filteredChats = chats.filter(chat =>
-    chat.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    chat.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Enhanced search filter - searches across all text data
+  const filteredChats = chats.filter(chat => {
+    const query = searchQuery.toLowerCase();
+    return (
+      chat.name.toLowerCase().includes(query) ||
+      chat.lastMessage.toLowerCase().includes(query) ||
+      (chat.id && chat.id.toLowerCase().includes(query))
+    );
+  });
 
   const animationsEnabled = useStore((state) => state.animationsEnabled);
+
+  // Listen for search trigger from header button
+  useEffect(() => {
+    if (params.triggerSearch) {
+      setIsSearching(true);
+    }
+  }, [params.triggerSearch]);
 
   useEffect(() => {
     if (animationsEnabled) {
@@ -95,6 +109,12 @@ export default function ChatsScreen() {
     );
   };
 
+  const handleProfilePress = (userId?: number) => {
+    if (userId) {
+      router.push(`/user/${userId}`);
+    }
+  };
+
   const renderItem = ({ item }: { item: Chat }) => {
     const isSelected = selectedChats.has(item.id);
     return (
@@ -118,7 +138,11 @@ export default function ChatsScreen() {
               <FontAwesome name={isSelected ? "check-circle" : "circle-thin"} size={24} color={isSelected ? colors.primary : colors.text} />
             </View>
           )}
-          <View style={styles.avatarContainer}>
+          <TouchableOpacity
+            style={styles.avatarContainer}
+            onPress={() => handleProfilePress(item.user_id)}
+            disabled={!item.user_id}
+          >
             <Image
               source={getMediaUrl(item.avatar) ? { uri: getMediaUrl(item.avatar)! } : require('@/assets/images/default-avatar.png')}
               style={styles.avatar}
@@ -126,7 +150,7 @@ export default function ChatsScreen() {
             {item.is_online && (
               <View style={[styles.onlineIndicator, { borderColor: colors.card }]} />
             )}
-          </View>
+          </TouchableOpacity>
           <View style={styles.contentContainer}>
             <View style={styles.headerRow}>
               <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{item.name}</Text>
@@ -153,7 +177,7 @@ export default function ChatsScreen() {
     )
   };
 
-  const [isSearching, setIsSearching] = useState(false);
+
 
   const toggleSearch = () => {
     setIsSearching(!isSearching);

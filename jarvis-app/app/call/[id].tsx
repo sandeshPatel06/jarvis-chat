@@ -24,6 +24,17 @@ export default function CallScreen() {
     const chat = chats.find(c => c.id === id);
 
     useEffect(() => {
+        console.log(`[CallScreen] 📺 Stream check: Local=${localStream?.toURL()}, Remote=${remoteStream?.toURL()}`);
+        if (remoteStream) {
+            console.log(`[CallScreen] Remote Tracks: ${remoteStream.getTracks().length}`);
+            remoteStream.getTracks().forEach(t => {
+                console.log(`[CallScreen] Remote Track ${t.id}: Kind=${t.kind}, Enabled=${t.enabled}, Muted=${t.muted}`);
+                // Add fresh listeners to existing tracks if needed (though we do this in webrtc.ts)
+            });
+        }
+    }, [remoteStream, localStream]);
+
+    useEffect(() => {
         if (!isCalling) {
             // Use replace to go to home instead of back to avoid navigation errors
             router.replace('/(tabs)');
@@ -115,6 +126,16 @@ export default function CallScreen() {
 
                 <TouchableOpacity style={[styles.controlButton, { backgroundColor: isSpeakerOn ? 'white' : 'rgba(255,255,255,0.2)' }]} onPress={toggleSpeaker}>
                     <MaterialIcons name={isSpeakerOn ? "volume-up" : "volume-off"} size={24} color={isSpeakerOn ? 'black' : 'white'} />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={[styles.controlButton, { backgroundColor: 'rgba(255,255,255,0.2)' }]}
+                    onPress={() => {
+                        useStore.getState().setIsMinimized(true);
+                        router.back();
+                    }}
+                >
+                    <MaterialIcons name="close-fullscreen" size={24} color="white" />
                 </TouchableOpacity>
             </View>
         </ScreenWrapper>

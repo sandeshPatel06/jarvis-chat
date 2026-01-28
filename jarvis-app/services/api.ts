@@ -1,8 +1,10 @@
-const API_URL = process.env.EXPO_PUBLIC_API_URL;
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
-if (!API_URL) {
-    throw new Error('Missing environment variable: EXPO_PUBLIC_API_URL');
+if (!BACKEND_URL) {
+    throw new Error('Missing environment variable: EXPO_PUBLIC_BACKEND_URL');
 }
+
+const API_URL = `${BACKEND_URL}/api`;
 
 const log = (message: string, data?: any) => {
     if (__DEV__) {
@@ -88,10 +90,116 @@ export const api = {
                 throw error;
             }
         },
+        getUserProfile: async (token: string, userId: number) => {
+            const url = `${API_URL}/auth/users/${userId}/`;
+            try {
+                log(`GET ${url}`);
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Token ${token}`,
+                        'Content-Type': 'application/json',
+                    },
+                });
+                const json = await response.json();
+                log('Get user profile response', { status: response.status, json });
+                if (!response.ok) throw new Error(JSON.stringify(json) || 'Failed to fetch user profile');
+                return json;
+            } catch (error) {
+                log('Get user profile error', error);
+                throw error;
+            }
+        },
+        blockUser: async (token: string, userId: number) => {
+            const url = `${API_URL}/auth/block/`;
+            try {
+                log(`POST ${url}`, { userId });
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Token ${token}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ user_id: userId }),
+                });
+                const json = await response.json();
+                log('Block user response', { status: response.status, json });
+                if (!response.ok) throw new Error(JSON.stringify(json) || 'Failed to block user');
+                return json;
+            } catch (error) {
+                log('Block user error', error);
+                throw error;
+            }
+        },
+        unblockUser: async (token: string, userId: number) => {
+            const url = `${API_URL}/auth/block/`;
+            try {
+                log(`DELETE ${url}`, { userId });
+                const response = await fetch(url, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Token ${token}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ user_id: userId }),
+                });
+                const json = await response.json();
+                log('Unblock user response', { status: response.status, json });
+                if (!response.ok) throw new Error(JSON.stringify(json) || 'Failed to unblock user');
+                return json;
+            } catch (error) {
+                log('Unblock user error', error);
+                throw error;
+            }
+        },
+        getBlockedUsers: async (token: string) => {
+            const url = `${API_URL}/auth/block/`;
+            try {
+                log(`GET ${url}`);
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Token ${token}`,
+                        'Content-Type': 'application/json',
+                    },
+                });
+                const json = await response.json();
+                log('Get blocked users response', { status: response.status, count: json.length });
+                if (!response.ok) throw new Error(JSON.stringify(json) || 'Failed to fetch blocked users');
+                return json;
+            } catch (error) {
+                log('Get blocked users error', error);
+                return [];
+            }
+        },
     },
     chat: {
-        getConversations: async (token: string) => {
-            const url = `${API_URL}/chat/conversations/`;
+        restoreChats: async (token: string, conversationIds: number[], restoreDate?: string) => {
+            const url = `${API_URL}/chat/restore/`;
+            try {
+                log(`POST ${url}`, { conversationIds, restoreDate });
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Token ${token}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        conversation_ids: conversationIds,
+                        restore_messages_before: restoreDate
+                    })
+                });
+                const json = await response.json();
+                log('Restore chats response', { status: response.status, json });
+                if (!response.ok) throw new Error(JSON.stringify(json) || 'Failed to restore chats');
+                return json;
+            } catch (error) {
+                log('Restore chats error', error);
+                throw error;
+            }
+        },
+        getConversations: async (token: string, deleted: boolean = false) => {
+            const url = `${API_URL}/chat/conversations/?deleted=${deleted}`;
             try {
                 log(`GET ${url}`);
                 const response = await fetch(url, {

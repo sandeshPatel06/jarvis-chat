@@ -55,6 +55,7 @@ interface CallState {
     localStream: MediaStream | null;
     activeChatId: string | null;
     bufferedCandidates: any[];
+    isMinimized: boolean;
 }
 
 
@@ -113,6 +114,15 @@ interface AppState {
     endCall: () => void;
     acceptCall: () => Promise<void>;
     handleSignalingMessage: (message: any) => Promise<void>;
+
+    // Blocking
+    blockedUsers: number[];
+    fetchBlockedUsers: () => Promise<void>;
+    blockUser: (userId: number) => Promise<void>;
+    unblockUser: (userId: number) => Promise<void>;
+
+    // Restore
+    restoreChats: (conversationIds: number[], restoreDate?: string) => Promise<void>;
 }
 
 
@@ -124,9 +134,10 @@ const playRingtone = async (isIncoming: boolean) => {
         // Configure audio session for VoIP-like behavior
         await Audio.setAudioModeAsync({
             playsInSilentMode: true,
-            interruptionMode: 'duckOthers',
-            allowsRecording: false,
+            interruptionMode: 'doNotMix',
+            allowsRecording: true, // Allow recording for VOIP
             shouldRouteThroughEarpiece: false,
+            shouldPlayInBackground: true,
         });
 
         // Stop any existing sound
@@ -212,12 +223,13 @@ export const useStore = create<AppState>()(
                     localStream: null,
                     activeChatId: null,
                     bufferedCandidates: [],
+                    isMinimized: false,
                 },
 
                 startCall: async (chatId, isVideo = true) => {
                     // Set calling state immediately for responsive UI
                     set((state) => ({
-                        callState: { ...state.callState, isCalling: true, activeChatId: chatId }
+                        callState: { ...state.callState, isCalling: true, activeChatId: chatId, isMinimized: false, bufferedCandidates: [] }
                     }));
 
                     try {
@@ -256,9 +268,14 @@ export const useStore = create<AppState>()(
                         webrtcService.createPeerConnection();
 
                         webrtcService.onRemoteStream = (stream) => {
-                            console.log('[Store] Remote stream received, updating state');
+                            console.log('[Store] Remote stream received, updating state. Tracks:', stream.getTracks().length);
+                            stream.getTracks().forEach(track => {
+                                console.log(`[Store] Remote track: Kind=${track.kind}, ID=${track.id}, Enabled=${track.enabled}, Muted=${track.muted}`);
+                            });
+                            // Create a new stream object to force RTCView to re-render
+                            const freshStream = new MediaStream(stream);
                             set((state) => ({
-                                callState: { ...state.callState, remoteStream: stream }
+                                callState: { ...state.callState, remoteStream: freshStream }
                             }));
                         };
 
@@ -342,7 +359,8 @@ export const useStore = create<AppState>()(
                             remoteStream: null,
                             localStream: null,
                             activeChatId: null,
-                            bufferedCandidates: []
+                            bufferedCandidates: [],
+                            isMinimized: false
                         }
                     }));
                 },
@@ -354,7 +372,7 @@ export const useStore = create<AppState>()(
                     stopRingtone(); // Stop incoming call ring
                     try {
                         set((state) => ({
-                            callState: { ...state.callState, isCalling: true, activeChatId: incomingCall.chatId, incomingCall: null }
+                            callState: { ...state.callState, isCalling: true, activeChatId: incomingCall.chatId, incomingCall: null, isMinimized: false, bufferedCandidates: [] }
                         }));
 
                         // Request permissions for answering too
@@ -390,9 +408,14 @@ export const useStore = create<AppState>()(
                         webrtcService.createPeerConnection();
 
                         webrtcService.onRemoteStream = (stream) => {
-                            console.log('[Store] Remote stream received in acceptCall, updating state');
+                            console.log('[Store] Remote stream received in acceptCall, updating state. Tracks:', stream.getTracks().length);
+                            stream.getTracks().forEach(track => {
+                                console.log(`[Store] Remote track (acceptCall): Kind=${track.kind}, ID=${track.id}, Enabled=${track.enabled}, Muted=${track.muted}`);
+                            });
+                            // Create a new stream object to force RTCView to re-render
+                            const freshStream = new MediaStream(stream);
                             set((state) => ({
-                                callState: { ...state.callState, remoteStream: stream }
+                                callState: { ...state.callState, remoteStream: freshStream }
                             }));
                         };
 
@@ -446,11 +469,54 @@ export const useStore = create<AppState>()(
                     }
                 },
 
+
+
+                // Blocking
+                blockedUsers: [],
+                fetchBlockedUsers: async () => {
+                    const { token } = get();
+                    if (!token) return;
+                    const users = await api.auth.getBlockedUsers(token);
+                    set({ blockedUsers: users });
+                },
+                blockUser: async (userId: number) => {
+                    const { token } = get();
+                    if (!token) return;
+                    await api.auth.blockUser(token, userId);
+                    // Update state
+                    set((state) => ({ blockedUsers: [...state.blockedUsers, userId] }));
+                },
+                unblockUser: async (userId: number) => {
+                    const { token } = get();
+                    if (!token) return;
+                    await api.auth.unblockUser(token, userId);
+                    // Update state
+                    set((state) => ({ blockedUsers: state.blockedUsers.filter(id => id !== userId) }));
+                },
+
+                restoreChats: async (conversationIds: number[], restoreDate?: string) => {
+                    const { token } = get();
+                    if (!token) return;
+                    try {
+                        const response = await api.chat.restoreChats(token, conversationIds, restoreDate);
+                        // Refresh chats
+                        await get().fetchChats();
+                    } catch (e) {
+                        console.error('Failed to restore chats', e);
+                        throw e; // Let UI handle error
+                    }
+                },
+
                 handleSignalingMessage: async (message: any) => {
                     const { type, payload } = message;
+                    const pc = webrtcService.peerConnection;
+                    const signalingState = pc?.signalingState || 'no-pc';
+                    const connectionState = pc?.connectionState || 'no-pc';
+
+                    console.log(`[Signaling] 📥 Received ${message.type}. State: [Sig: ${signalingState}, Conn: ${connectionState}]`);
 
                     if (message.type === 'webrtc_offer') {
-                        console.log('[Signaling] Offer received');
+                        console.log('[Signaling] Offer received from peer');
                         const state = get().callState;
                         const currentUser = get().user?.username;
 
@@ -467,30 +533,44 @@ export const useStore = create<AppState>()(
                             const chat = get().chats.find(c => c.id === message.chat_id);
                             const remoteUsername = chat?.name;
 
-                            if (currentUser && remoteUsername) {
-                                const isPolite = currentUser < remoteUsername;
-                                if (!isPolite) {
-                                    console.log('[Signaling] Glare detected, we are impolite, ignoring incoming offer');
-                                    return;
-                                }
-                                console.log('[Signaling] Glare detected, we are polite, rolling back and accepting new offer');
-                                // Rollback: Cleanup current signaling state but keep isCalling true?
-                                // Actually, it's better to just end the current attempt and start fresh with the incoming offer.
-                                stopRingtone();
-                                webrtcService.endCall();
-                            }
+                            console.log('[Signaling] Glare detected, we are polite. Resetting local PC to accept incoming offer.');
+                            stopRingtone();
+                            // We close the current PC to start fresh with the incoming offer
+                            // We close the current PC to start fresh with the incoming offer
+                            webrtcService.endCall();
+                            // The code below will continue to process this offer as a fresh incoming call
                         }
 
                         if (isRenegotiation) {
-                            console.log('[Signaling] Renegotiation offer received (likely ICE restart)');
+                            console.log('[Signaling] Renegotiation offer detected. Checking state before applying.');
+                            if (pc && pc.signalingState !== 'stable' && pc.signalingState !== 'have-local-offer') {
+                                console.warn(`[Signaling] ⚠️ Collision! Cannot apply renegotiation offer in state: ${pc.signalingState}. Skipping.`);
+                                return;
+                            }
+
+                            console.log('[Signaling] Applying renegotiation offer...');
                             await webrtcService.setRemoteDescription(message.offer);
+                            console.log('[Signaling] Creating answer for renegotiation...');
                             const answer = await webrtcService.createAnswer();
                             const socket = get().socket;
                             if (socket) {
+                                console.log('[Signaling] Sending answer for renegotiation...');
                                 socket.send(JSON.stringify({
                                     type: 'webrtc_answer',
                                     chat_id: message.chat_id,
                                     answer: answer
+                                }));
+                            }
+
+                            // Process any buffered candidates after restart/renegotiation answer
+                            const { bufferedCandidates } = get().callState;
+                            if (bufferedCandidates.length > 0 && webrtcService.peerConnection && webrtcService.peerConnection.remoteDescription) {
+                                console.log(`[Signaling] Processing ${bufferedCandidates.length} buffered ICE candidates after renegotiation`);
+                                for (const candidate of bufferedCandidates) {
+                                    await webrtcService.addIceCandidate(candidate);
+                                }
+                                set((state) => ({
+                                    callState: { ...state.callState, bufferedCandidates: [] }
                                 }));
                             }
                             return;
@@ -511,12 +591,18 @@ export const useStore = create<AppState>()(
                             }
                         }));
                     } else if (message.type === 'webrtc_answer') {
-                        console.log('[Signaling] Answer received');
+                        console.log('[Signaling] Answer received. Checking state...');
+                        if (!pc || pc.signalingState !== 'have-local-offer') {
+                            console.warn(`[Signaling] ⚠️ Unexpected Answer! PC state is ${signalingState}. Expected 'have-local-offer'. Ignoring.`);
+                            return;
+                        }
+
                         get().showToast('success', 'Call Connected', 'Remote answered');
                         stopRingtone(); // Stop dialing sound
+                        console.log('[Signaling] Applying remote answer...');
                         await webrtcService.setRemoteDescription(message.answer);
 
-                        // Process buffered candidates for the caller side
+                        // Process buffered candidates for the caller side (re-verify context)
                         const { bufferedCandidates } = get().callState;
                         if (bufferedCandidates.length > 0) {
                             console.log(`[Signaling] Caller processing ${bufferedCandidates.length} buffered ICE candidates after Answer`);
@@ -525,16 +611,20 @@ export const useStore = create<AppState>()(
                             }
                             // Clear buffered candidates
                             set((state) => ({
-                                callState: { ...state.callState, bufferedCandidates: [] }
+                                callState: { ...state.callState, bufferedCandidates: [], isMinimized: false }
                             }));
                         }
                     } else if (message.type === 'webrtc_ice_candidate') {
-                        console.log('[Signaling] ICE Candidate received');
+                        const candidateStr = message.candidate?.candidate?.substring(0, 80) + '...';
+                        console.log(`[Signaling] 📥 ICE Candidate: ${candidateStr}`);
                         const pc = webrtcService.peerConnection;
+                        const signalingState = pc?.signalingState || 'no-pc';
+
                         if (pc && pc.remoteDescription) {
+                            console.log(`[Signaling] Applying candidate. State: ${signalingState}`);
                             await webrtcService.addIceCandidate(message.candidate);
                         } else {
-                            console.log('[Signaling] Buffering ICE candidate (PC or RemoteDesc not ready)');
+                            console.log(`[Signaling] Buffering candidate. State: ${signalingState} (RemoteDesc not ready)`);
                             set((state) => ({
                                 callState: {
                                     ...state.callState,
@@ -556,12 +646,17 @@ export const useStore = create<AppState>()(
                                     remoteStream: null,
                                     localStream: null,
                                     activeChatId: null,
-                                    bufferedCandidates: []
+                                    bufferedCandidates: [],
+                                    isMinimized: false
                                 }
                             }));
                         }
                     }
                 },
+
+                setIsMinimized: (isMinimized: boolean) => set((state) => ({
+                    callState: { ...state.callState, isMinimized }
+                })),
 
                 setActiveChat: (chatId) => {
                     set((state) => ({
@@ -1177,7 +1272,8 @@ export const useStore = create<AppState>()(
                                 lastMessage: c.last_message?.text || '',
                                 lastMessageTime: c.last_message ? new Date(c.last_message.timestamp) : new Date(),
                                 unreadCount: c.unread_count || 0,
-                                messages: []
+                                messages: [],
+                                user_id: c.other_user_id || participant?.id // Add user_id from backend
                             };
                         });
 

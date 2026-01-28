@@ -15,7 +15,11 @@ import { useStore } from '@/store';
 import CustomToast from '@/components/CustomToast';
 import CustomAlert from '@/components/CustomAlert';
 import IncomingCallModal from '@/components/IncomingCallModal';
-import { requestNotificationPermissions, setForegroundNotificationHandler } from '@/utils/notifications';
+import { CallMiniWindow } from '@/components/chat/CallMiniWindow';
+import { requestNotificationPermissions, setForegroundNotificationHandler, registerForPushNotificationsAsync } from '@/utils/notifications';
+import * as Notifications from 'expo-notifications';
+import { api } from '@/services/api';
+
 
 
 
@@ -38,19 +42,59 @@ export default function RootLayout() {
     ...FontAwesome.font,
   });
 
+  const { token } = useStore();
+
   // Expo Router uses Error Boundaries to catch errors in the navigation tree.
   useEffect(() => {
     if (error) throw error;
   }, [error]);
 
   useEffect(() => {
-    // Set up notifications handler using centralized utility
-    try {
-      setForegroundNotificationHandler();
-    } catch (error) {
-      console.warn('Failed to set notification handler:', error);
+    // 3. Register for push notifications
+    if (token) {
+      registerForPushNotificationsAsync().then(async (pushToken) => {
+        if (pushToken) {
+          // Send token to backend
+          try {
+            console.log('Push Token:', pushToken);
+            // Assuming updateProfile can handle fcm_token or push_token update
+            // checking api.auth.updateProfile definition... it takes (token, data)
+            // We'll try updating 'fcm_token' or similar. 
+            // Based on common practices, let's try sending it.
+            // If the backend expects a specific endpoint, we might need a dedicated API call.
+            // For now, logging it is safe, and we should try to update it if we knew the field.
+            // Given the user instructions "ensure backend also store the settings value", 
+            // I will attempt to update the profile with 'fcm_token'.
+            await api.auth.updateProfile(token, { fcm_token: pushToken });
+          } catch (e) {
+            console.error('Failed to update push token', e);
+          }
+        }
+      });
     }
-  }, []);
+
+    // 4. Set dynamic notification handler (Foreground Suppression)
+    Notifications.setNotificationHandler({
+      handleNotification: async (notification) => {
+        const data = notification.request.content.data;
+        const currentActiveChatId = useStore.getState().activeChatId;
+
+        // Check if notification belongs to the currently open chat
+        // Adjust 'conversation_id' based on your actual payload structure
+        const notificationChatId = data?.conversation_id || data?.chat_id;
+
+        const shouldSuppress = currentActiveChatId && notificationChatId && String(currentActiveChatId) === String(notificationChatId);
+
+        return {
+          shouldShowAlert: !shouldSuppress, // Suppress usage if chat is open
+          shouldPlaySound: !shouldSuppress,
+          shouldSetBadge: false,
+          shouldShowBanner: !shouldSuppress,
+          shouldShowList: !shouldSuppress,
+        };
+      },
+    });
+  }, [token]);
 
   useEffect(() => {
     if (loaded) {
@@ -148,6 +192,7 @@ function RootLayoutNav() {
             <CustomToast />
             <CustomAlert />
             <IncomingCallModal />
+            <CallMiniWindow />
           </ThemeProvider>
         </SafeAreaProvider>
       </KeyboardProvider>

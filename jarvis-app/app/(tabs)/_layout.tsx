@@ -1,7 +1,7 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
 import React from 'react';
-import { Platform, View } from 'react-native';
+import { Platform, View, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useClientOnlyValue } from '@/components/useClientOnlyValue';
@@ -18,6 +18,7 @@ function TabBarIcon(props: {
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
+  const router = useRouter();
 
   return (
     <Tabs
@@ -86,9 +87,15 @@ export default function TabLayout() {
             </View>
           ),
           headerRight: () => (
-            <View style={{ flexDirection: 'row', marginRight: 20, gap: 20, paddingBottom: 10 }}>
-              <FontAwesome name="search" size={20} color={colors.primary} />
-              <FontAwesome name="edit" size={20} color={colors.primary} />
+            <View style={{ flexDirection: 'row', marginRight: 20, gap: 20, paddingBottom: 10,justifyContent: 'center' }}>
+              <TouchableOpacity onPress={() => {
+                router.setParams({ triggerSearch: Date.now().toString() });
+              }}>
+                <FontAwesome name="search" size={25} color={colors.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => router.push('/settings/profile')}>
+                <FontAwesome name="edit" size={25} color={colors.primary} />
+              </TouchableOpacity>
             </View>
           ),
         }}

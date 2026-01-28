@@ -19,7 +19,11 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "This app uses the camera for video calling.",
-        "NSMicrophoneUsageDescription": "This app uses the microphone for voice and video calls."
+        "NSMicrophoneUsageDescription": "This app uses the microphone for voice and video calls.",
+        "UIBackgroundModes": [
+          "audio",
+          "voip"
+        ]
       }
     },
     "android": {
@@ -50,7 +54,8 @@
       "expo-video",
       "expo-secure-store",
       "expo-localization",
-      "expo-asset"
+      "expo-asset",
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true

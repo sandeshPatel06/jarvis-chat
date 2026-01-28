@@ -140,14 +140,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
             conversation_id = text_data_json.get('conversation_id')
             
             if message_id:
-                success = await self.delete_message(message_id)
-                if success:
+                deleted_at = await self.delete_message(message_id)
+                if deleted_at:
                     # Notify sender
                     await self.send(text_data=json.dumps({
                         'type': 'message_deleted',
                         'message_id': message_id,
                         'conversation_id': conversation_id,
                         'deleted_by': self.user.username,
+                        'deleted_at': deleted_at
                     }))
 
                     # Notify recipient
@@ -158,7 +159,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                             {
                                 'type': 'message_deleted',
                                 'message_id': message_id,
-                                'conversation_id': conversation_id
+                                'conversation_id': conversation_id,
+                                'deleted_at': deleted_at
                             }
                         )
             return
@@ -237,7 +239,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         if message_text:
             # Save message to database
-            saved_message_data, recipient_id_derived = await self.save_message(message_text, recipient_id, conversation_id, reply_to_id)
+            saved_message_data, recipient_id_derived, is_blocked = await self.save_message(message_text, recipient_id, conversation_id, reply_to_id)
 
             if saved_message_data:
                 # Send message to sender
@@ -248,8 +250,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 # Determine final recipient_id (payload takes precedence, but usually derived is safer for consistency)
                 final_recipient_id = recipient_id or recipient_id_derived
 
-                # Send message to recipient's group
-                if final_recipient_id:
+                # Send message to recipient's group ONLY if NOT blocked
+                if final_recipient_id and not is_blocked:
                     recipient_group_name = f"user_{final_recipient_id}"
                     await self.channel_layer.group_send(
                         recipient_group_name,
@@ -349,8 +351,25 @@ class ChatConsumer(AsyncWebsocketConsumer):
             elif recipient_id:
                  recipient = User.objects.get(id=recipient_id)
                  conversation = Conversation.objects.filter(participants=self.user).filter(participants=recipient).first()
-            
+                 
+                 if not conversation:
+                     conversation = Conversation.objects.create()
+                     conversation.participants.add(self.user, recipient)
+
+            is_blocked = False
             if conversation:
+                 # Check for blocking
+                # Find the other participant in 1-on-1 chat
+                if conversation.participants.count() == 2:
+                    other_user = conversation.participants.exclude(id=self.user.id).first()
+                    if other_user:
+                        from accounts.models import BlockedUser
+                        # Sync check provided we are in sync_to_async/database_sync_to_async context
+                        if BlockedUser.objects.filter(blocker=other_user, blocked=self.user).exists():
+                            print(f"[WS] Message soft-blocked: {self.user} is blocked by {other_user}")
+                            is_blocked = True
+                            # Continue to save message, but flag it
+
                 reply_to_message = None
                 if reply_to_id:
                     reply_to_message = Message.objects.filter(id=reply_to_id).first()
@@ -375,12 +394,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 if conversation.participants.count() == 1 and conversation.participants.first() == self.user:
                      derived_recipient_id = self.user.id
 
-                return data, derived_recipient_id
+                return data, derived_recipient_id, is_blocked
                 
         except Exception as e:
             print(f"Error saving message: {e}")
-            return None, None
-        return None, None
+            return None, None, False
+        return None, None, False
 
     @database_sync_to_async
     def edit_message(self, message_id, new_text):
@@ -396,12 +415,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def delete_message(self, message_id):
         from .models import Message
+        from django.utils import timezone
         try:
             message = Message.objects.get(id=message_id, sender=self.user)
-            message.delete()
-            return True
+            message.deleted_at = timezone.now()
+            message.save()
+            return message.deleted_at.isoformat()
         except Message.DoesNotExist:
-            return False
+            return None
 
     @database_sync_to_async
     def react_to_message(self, message_id, emoji):
@@ -436,6 +457,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'message_id': event['message_id'],
             'conversation_id': event['conversation_id'],
             'deleted_by': event.get('deleted_by', 'user'),  # Include who deleted it
+            'deleted_at': event.get('deleted_at')
         }))
 
     async def message_reaction(self, event):

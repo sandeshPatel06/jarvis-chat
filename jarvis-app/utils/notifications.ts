@@ -24,7 +24,7 @@ export async function requestNotificationPermissions(): Promise<boolean> {
     }
 
     if (Platform.OS === 'android') {
-        Notifications.setNotificationChannelAsync('default', {
+        await Notifications.setNotificationChannelAsync('default', {
             name: 'default',
             importance: Notifications.AndroidImportance.MAX,
             vibrationPattern: [0, 250, 250, 250],
@@ -33,6 +33,43 @@ export async function requestNotificationPermissions(): Promise<boolean> {
     }
 
     return true;
+}
+
+/**
+ * Registers for push notifications and returns the token.
+ */
+export async function registerForPushNotificationsAsync() {
+    if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync('default', {
+            name: 'default',
+            importance: Notifications.AndroidImportance.MAX,
+            vibrationPattern: [0, 250, 250, 250],
+            lightColor: '#FF231F7C',
+        });
+    }
+
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+    if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+    }
+    if (finalStatus !== 'granted') {
+        // alert('Failed to get push token for push notification!');
+        return;
+    }
+
+    // Get the token that uniquely identifies this device
+    try {
+        const token = (await Notifications.getExpoPushTokenAsync({
+            projectId: process.env.EXPO_PUBLIC_PROJECT_ID, // Ensure you have this env var or use constants
+        })).data;
+
+        return token;
+    } catch (error) {
+        console.warn('Failed to get push token. Ensure Firebase is configured for Android:', error);
+        return null;
+    }
 }
 
 /**
@@ -64,6 +101,7 @@ export async function scheduleLocalNotification(
 
 /**
  * Configures how notifications are handled when the app is in the foreground.
+ * @deprecated Use custom logic in _layout.tsx instead
  */
 export function setForegroundNotificationHandler() {
     Notifications.setNotificationHandler({
