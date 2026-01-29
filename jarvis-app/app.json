@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "jarvis",
+    "name": "Jarvis Chat",
     "slug": "jarvis",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -15,12 +15,14 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.jarvis",
+      "bundleIdentifier": "com.jarvischat.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "This app uses the camera for video calling.",
         "NSMicrophoneUsageDescription": "This app uses the microphone for voice and video calls.",
         "UIBackgroundModes": [
+          "audio",
+          "voip",
           "audio",
           "voip"
         ]
@@ -34,8 +36,13 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "softwareKeyboardLayoutMode": "resize",
-      "package": "com.anonymous.jarvis",
+      "package": "com.jarvischat.app",
+      "googleServicesFile": "./google-services.json",
       "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.INTERNET",
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS",
@@ -63,9 +70,15 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "94442553-97dc-4324-bcc5-b73b296997a1"
+        "projectId": "65b653b8-cbc6-4e88-8b68-2ade79e84097"
       }
     },
-    "owner": "sandesh007s-organization"
+    "owner": "sandesh032",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/65b653b8-cbc6-4e88-8b68-2ade79e84097"
+    }
   }
 }
