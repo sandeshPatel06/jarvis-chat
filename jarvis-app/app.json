@@ -68,10 +68,10 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "94442553-97dc-4324-bcc5-b73b296997a1"
+        "projectId": "a51c6b97-eece-4ad5-896b-7825ea991232"
       }
     },
-    "owner": "sandesh007s-organization",
+    "owner": "reakuser",
     "runtimeVersion": {
       "policy": "appVersion"
     },
