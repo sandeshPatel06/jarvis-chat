@@ -5,22 +5,27 @@ import { useStore } from '@/store';
 import { Chat } from '@/types';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { FlatList, Image, Pressable, StyleSheet, TextInput, TouchableOpacity, LayoutAnimation } from 'react-native';
+import { FlatList, Image, Pressable, StyleSheet, TextInput, TouchableOpacity, LayoutAnimation, Platform } from 'react-native';
 
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { getMediaUrl } from '@/utils/media';
+import ChatItem from '@/components/chat/ChatItem';
+import { useCallback, useMemo } from 'react';
 
 export default function ChatsScreen() {
   const router = useRouter();
   const { colors } = useAppTheme();
-  const chats = useStore((state) => state.chats);
-  const fetchChats = useStore((state) => state.fetchChats);
-  const deleteChats = useStore((state) => state.deleteChats);
-  const user = useStore((state) => state.user);
-  const showAlert = useStore((state) => state.showAlert);
-  const connectWebSocket = useStore((state) => state.connectWebSocket);
+
+  // Specific selectors to avoid unnecessary re-renders
+  const chats = useStore(useCallback((state) => state.chats, []));
+  const fetchChats = useStore(useCallback((state) => state.fetchChats, []));
+  const deleteChats = useStore(useCallback((state) => state.deleteChats, []));
+  const user = useStore(useCallback((state) => state.user, []));
+  const showAlert = useStore(useCallback((state) => state.showAlert, []));
+  const connectWebSocket = useStore(useCallback((state) => state.connectWebSocket, []));
+  const animationsEnabled = useStore(useCallback((state) => state.animationsEnabled, []));
   const params = useLocalSearchParams();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -28,17 +33,16 @@ export default function ChatsScreen() {
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
 
-  // Enhanced search filter - searches across all text data
-  const filteredChats = chats.filter(chat => {
+  // Memoized search filter
+  const filteredChats = useMemo(() => {
     const query = searchQuery.toLowerCase();
-    return (
+    if (!query) return chats;
+    return chats.filter(chat =>
       chat.name.toLowerCase().includes(query) ||
       chat.lastMessage.toLowerCase().includes(query) ||
       (chat.id && chat.id.toLowerCase().includes(query))
     );
-  });
-
-  const animationsEnabled = useStore((state) => state.animationsEnabled);
+  }, [chats, searchQuery]);
 
   // Listen for search trigger from header button
   useEffect(() => {
@@ -60,38 +64,40 @@ export default function ChatsScreen() {
     }
   }, [user]);
 
-  const formatTime = (date: Date) => {
+  const formatTime = useCallback((date: Date) => {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
+  }, []);
 
-  const handleLongPress = (chatId: string) => {
+  const handleLongPress = useCallback((chatId: string) => {
     setIsSelectionMode(true);
     setSelectedChats(new Set([chatId]));
-  };
+  }, []);
 
-  const handlePress = (chatId: string) => {
+  const handlePress = useCallback((chatId: string) => {
     if (isSelectionMode) {
-      const newSelected = new Set(selectedChats);
-      if (newSelected.has(chatId)) {
-        newSelected.delete(chatId);
-        if (newSelected.size === 0) {
-          setIsSelectionMode(false);
+      setSelectedChats(prev => {
+        const newSelected = new Set(prev);
+        if (newSelected.has(chatId)) {
+          newSelected.delete(chatId);
+          if (newSelected.size === 0) {
+            setIsSelectionMode(false);
+          }
+        } else {
+          newSelected.add(chatId);
         }
-      } else {
-        newSelected.add(chatId);
-      }
-      setSelectedChats(newSelected);
+        return newSelected;
+      });
     } else {
       router.push(`/chat/${chatId}`);
     }
-  };
+  }, [isSelectionMode, router]);
 
-  const handleCancelSelection = () => {
+  const handleCancelSelection = useCallback(() => {
     setIsSelectionMode(false);
     setSelectedChats(new Set());
-  };
+  }, []);
 
-  const handleDeleteSelected = () => {
+  const handleDeleteSelected = useCallback(() => {
     const ids = Array.from(selectedChats);
     showAlert(
       "Delete Chats",
@@ -107,75 +113,28 @@ export default function ChatsScreen() {
         }
       ]
     );
-  };
+  }, [selectedChats, showAlert, deleteChats]);
 
-  const handleProfilePress = (userId?: number) => {
+  const handleProfilePress = useCallback((userId?: number) => {
     if (userId) {
       router.push(`/user/${userId}`);
     }
-  };
+  }, [router]);
 
-  const renderItem = ({ item }: { item: Chat }) => {
-    const isSelected = selectedChats.has(item.id);
+  const renderItem = useCallback(({ item }: { item: Chat }) => {
     return (
-      <View style={{ paddingHorizontal: 15 }}>
-        <Pressable
-          onPress={() => handlePress(item.id)}
-          onLongPress={() => handleLongPress(item.id)}
-          delayLongPress={300}
-          style={({ pressed }) => [
-            styles.itemContainer,
-            {
-              backgroundColor: isSelected ? colors.primary + '20' : colors.card, // Card background
-              opacity: pressed ? 0.9 : 1,
-              transform: [{ scale: pressed ? 0.98 : 1 }],
-              borderRadius: 20, // Rounded Corners
-            }
-          ]}
-        >
-          {isSelectionMode && (
-            <View style={{ marginRight: 10 }}>
-              <FontAwesome name={isSelected ? "check-circle" : "circle-thin"} size={24} color={isSelected ? colors.primary : colors.text} />
-            </View>
-          )}
-          <TouchableOpacity
-            style={styles.avatarContainer}
-            onPress={() => handleProfilePress(item.user_id)}
-            disabled={!item.user_id}
-          >
-            <Image
-              source={getMediaUrl(item.avatar) ? { uri: getMediaUrl(item.avatar)! } : require('@/assets/images/default-avatar.png')}
-              style={styles.avatar}
-            />
-            {item.is_online && (
-              <View style={[styles.onlineIndicator, { borderColor: colors.card }]} />
-            )}
-          </TouchableOpacity>
-          <View style={styles.contentContainer}>
-            <View style={styles.headerRow}>
-              <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{item.name}</Text>
-              <Text style={[styles.time, { color: colors.tabIconDefault }]}>{formatTime(item.lastMessageTime)}</Text>
-            </View>
-            <View style={styles.messageRow}>
-              <Text numberOfLines={1} style={[styles.message, { color: colors.text, opacity: 0.7 }]}>
-                {item.lastMessage}
-              </Text>
-              {item.unreadCount > 0 && (
-                <LinearGradient
-                  colors={[colors.primary, colors.secondary]}
-                  style={styles.unreadBadge}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  <Text style={styles.unreadText}>{item.unreadCount}</Text>
-                </LinearGradient>
-              )}
-            </View>
-          </View>
-        </Pressable>
-      </View>
-    )
-  };
+      <ChatItem
+        item={item}
+        isSelected={selectedChats.has(item.id)}
+        isSelectionMode={isSelectionMode}
+        colors={colors}
+        onPress={handlePress}
+        onLongPress={handleLongPress}
+        onProfilePress={handleProfilePress}
+        formatTime={formatTime}
+      />
+    );
+  }, [selectedChats, isSelectionMode, colors, handlePress, handleLongPress, handleProfilePress, formatTime]);
 
 
 
@@ -187,11 +146,20 @@ export default function ChatsScreen() {
   };
 
   return (
-    <ScreenWrapper style={styles.container}>
+    <ScreenWrapper
+      style={styles.container}
+      edges={isSearching || isSelectionMode ? ['top', 'left', 'right'] : ['left', 'right']}
+      withExtraTopPadding={false}
+    >
+      <Stack.Screen
+        options={{
+          headerShown: !isSearching && !isSelectionMode,
+        }}
+      />
 
-      {/* Custom Header with Toggle Search or Selection Mode */}
-      <View style={[styles.header, { borderBottomColor: 'transparent' }]}>
-        {isSelectionMode ? (
+      {/* Selection Mode Header - only show when active */}
+      {isSelectionMode && (
+        <View style={[styles.header, { borderBottomColor: 'transparent' }]}>
           <View style={styles.headerTitleContainer}>
             <TouchableOpacity onPress={handleCancelSelection} style={styles.headerIcon}>
               <FontAwesome name="times" size={24} color={colors.text} />
@@ -201,19 +169,12 @@ export default function ChatsScreen() {
               <FontAwesome name="trash" size={24} color="red" />
             </TouchableOpacity>
           </View>
-        ) : !isSearching ? (
-          <View style={styles.headerTitleContainer}>
-            {/* Modern Large Title is handled by _layout, we can keep this empty or just show search icon if needed, 
-                 but _layout has search icon. Let's effectively hide this custom header or merge it. 
-                 Since _layout provides the header, we might just want to use the list content. 
-                 However, the code has a custom header inside the screen. 
-                 Let's keep the custom header logic for Selection Mode, but hide the default "Chats" title if _layout shows it.
-                 Actually, the previous _layout had headerShown: true. 
-                 Let's simplify: removing the "Chats" title from here since it's in the navigation header now.
-             */}
-            <View />
-          </View>
-        ) : (
+        </View>
+      )}
+
+      {/* Floating Search Bar (if searching) */}
+      {isSearching && (
+        <View style={styles.header}>
           <View style={[styles.headerSearchContainer, { backgroundColor: colors.backgroundSecondary }]}>
             <TouchableOpacity onPress={toggleSearch} style={styles.headerIcon}>
               <FontAwesome name="arrow-left" size={24} color={colors.text} />
@@ -232,8 +193,8 @@ export default function ChatsScreen() {
               </TouchableOpacity>
             )}
           </View>
-        )}
-      </View>
+        </View>
+      )}
 
       <FlatList
         data={filteredChats}
@@ -241,6 +202,15 @@ export default function ChatsScreen() {
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
         ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+        getItemLayout={(_, index) => ({
+          length: 84, // Approximate height of each item (64 avatar + 20 padding)
+          offset: (84 + 10) * index, // 10 is separator height
+          index,
+        })}
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+        removeClippedSubviews={Platform.OS === 'android'}
       />
 
       <TouchableOpacity
@@ -297,7 +267,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingTop: 10,
-    paddingBottom: 100, // Space for FAB
+    paddingBottom: 150, // More space for FAB and floating tab bar
   },
   itemContainer: {
     flexDirection: 'row',

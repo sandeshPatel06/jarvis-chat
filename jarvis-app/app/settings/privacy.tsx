@@ -1,27 +1,28 @@
+import React, { useCallback } from 'react';
+import { ScrollView, StyleSheet, TouchableOpacity, View, Text } from 'react-native';
+import { useRouter } from 'expo-router';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+
 import { ScreenWrapper } from '@/components/ScreenWrapper';
-import { Text, View } from '@/components/Themed';
 import { useStore } from '@/store';
 import { useAppTheme } from '@/hooks/useAppTheme';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { ScrollView, StyleSheet, TouchableOpacity, Switch } from 'react-native';
-import { useRouter } from 'expo-router';
+import SettingRow from '@/components/settings/SettingRow';
+import SettingCard from '@/components/settings/SettingCard';
 
 export default function PrivacySettingsScreen() {
-    const { colors, isDark } = useAppTheme();
+    const { colors } = useAppTheme();
     const user = useStore((state) => state.user);
     const updateSettings = useStore((state) => state.updateSettings);
     const showAlert = useStore((state) => state.showAlert);
     const router = useRouter();
 
-    const handleToggleReadReceipts = async (value: boolean) => {
+    const handleToggleReadReceipts = useCallback(async (value: boolean) => {
         try {
             await updateSettings({ privacy_read_receipts: value });
-        } catch (error) {
-            // Error handled by store
-        }
-    };
+        } catch (error) { }
+    }, [updateSettings]);
 
-    const handleChoiceSelection = (field: string, title: string, current: string) => {
+    const handleChoiceSelection = useCallback((field: string, title: string) => {
         showAlert(
             title,
             'Who can see my ' + title.toLowerCase(),
@@ -32,37 +33,14 @@ export default function PrivacySettingsScreen() {
                 { text: 'Cancel', style: 'cancel' }
             ]
         );
-    };
-
-    const SettingRow = ({ title, value, onPress, isSwitch, switchValue, onSwitchChange }: any) => (
-        <TouchableOpacity
-            style={[styles.row, { borderBottomColor: colors.itemSeparator }]}
-            onPress={onPress}
-            disabled={isSwitch}
-        >
-            <View style={styles.rowMain}>
-                <Text style={[styles.rowTitle, { color: colors.text }]}>{title}</Text>
-                {value && <Text style={styles.rowValue}>{value}</Text>}
-            </View>
-            {isSwitch ? (
-                <Switch
-                    value={switchValue}
-                    onValueChange={onSwitchChange}
-                    trackColor={{ false: '#767577', true: colors.primary }}
-                    thumbColor={'white'}
-                />
-            ) : (
-                <FontAwesome name="chevron-right" size={14} color={colors.tabIconDefault} />
-            )}
-        </TouchableOpacity>
-    );
+    }, [showAlert, updateSettings]);
 
     const formatChoice = (choice: string | undefined) => {
         if (!choice) return 'Everyone';
         return choice.charAt(0).toUpperCase() + choice.slice(1).replace('_', ' ');
     };
 
-    const handleDisappearingMessagesSelection = () => {
+    const handleDisappearingMessagesSelection = useCallback(() => {
         showAlert(
             'Default message timer',
             'Start new chats with disappearing messages set to your timer',
@@ -74,7 +52,7 @@ export default function PrivacySettingsScreen() {
                 { text: 'Cancel', style: 'cancel' }
             ]
         );
-    };
+    }, [showAlert, updateSettings]);
 
     const formatTimer = (seconds: number | undefined) => {
         if (!seconds || seconds === 0) return 'Off';
@@ -88,48 +66,67 @@ export default function PrivacySettingsScreen() {
         <ScreenWrapper style={styles.container} edges={['top', 'left', 'right', 'bottom']}>
             <View style={[styles.header, { borderBottomColor: colors.itemSeparator }]}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <FontAwesome name="lock" size={18} color={colors.primary} />
+                    <FontAwesome name="chevron-left" size={20} color={colors.primary} />
                 </TouchableOpacity>
                 <Text style={[styles.headerTitle, { color: colors.text }]}>Privacy</Text>
-                {/* <View style={{ width: 40 }} /> */}
+                <View style={{ width: 40 }} />
             </View>
 
-            <ScrollView contentContainerStyle={styles.scrollContent}>
+            <ScrollView
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+            >
                 <View style={styles.section}>
-                    <Text style={[styles.sectionTitle, { color: colors.primary }]}>Who can see my personal info</Text>
-                    <Text style={styles.sectionDescription}>
-                        If you don't share your Last Seen, you won't be able to see other people's Last Seen.
+                    <Text style={[styles.sectionTitle, { color: colors.primary }]}>Visibility</Text>
+                    <Text style={[styles.sectionDescription, { color: colors.textSecondary }]}>
+                        Control who can see your personal information and activity.
                     </Text>
 
-                    <View style={[styles.card, { backgroundColor: isDark ? colors.inputBackground : '#fff' }]}>
+                    <SettingCard>
                         <SettingRow
                             title="Last Seen"
+                            icon="clock-o"
                             value={formatChoice(user?.privacy_last_seen)}
-                            onPress={() => handleChoiceSelection('privacy_last_seen', 'Last Seen', user?.privacy_last_seen || 'everyone')}
+                            onPress={() => handleChoiceSelection('privacy_last_seen', 'Last Seen')}
+                            color="#4FACFE"
                         />
                         <SettingRow
                             title="Profile Photo"
+                            icon="image"
                             value={formatChoice(user?.privacy_profile_photo)}
-                            onPress={() => handleChoiceSelection('privacy_profile_photo', 'Profile Photo', user?.privacy_profile_photo || 'everyone')}
+                            onPress={() => handleChoiceSelection('privacy_profile_photo', 'Profile Photo')}
+                            color="#6C63FF"
                         />
                         <SettingRow
                             title="Read Receipts"
+                            icon="check-circle"
                             isSwitch
                             switchValue={user?.privacy_read_receipts ?? true}
                             onSwitchChange={handleToggleReadReceipts}
+                            color="#38F9D7"
+                            isLast
                         />
-                    </View>
+                    </SettingCard>
+                    <Text style={[styles.hint, { color: colors.textSecondary }]}>
+                        If you don't share your Last Seen, you won't be able to see other people's Last Seen.
+                    </Text>
                 </View>
 
                 <View style={styles.section}>
-                    <Text style={[styles.sectionTitle, { color: colors.primary }]}>Disappearing Messages</Text>
-                    <View style={[styles.card, { backgroundColor: isDark ? colors.inputBackground : '#fff' }]}>
+                    <Text style={[styles.sectionTitle, { color: colors.primary }]}>Messages</Text>
+                    <SettingCard>
                         <SettingRow
                             title="Default message timer"
+                            icon="hourglass-end"
                             value={formatTimer(user?.privacy_disappearing_messages_timer)}
                             onPress={handleDisappearingMessagesSelection}
+                            color="#FA709A"
+                            isLast
                         />
-                    </View>
+                    </SettingCard>
+                    <Text style={[styles.hint, { color: colors.textSecondary }]}>
+                        Start new chats with disappearing messages set to your timer.
+                    </Text>
                 </View>
             </ScrollView>
         </ScreenWrapper>
@@ -143,11 +140,9 @@ const styles = StyleSheet.create({
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
-        paddingHorizontal: 15,
-        paddingTop: 20,
-        paddingBottom: 12,
-        borderBottomWidth: StyleSheet.hairlineWidth,
+        paddingHorizontal: 20,
+        paddingBottom: 15,
+        borderBottomWidth: 0.5,
     },
     backButton: {
         padding: 5,
@@ -155,54 +150,40 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontSize: 18,
-        fontWeight: 'bold',
+        fontWeight: '800',
+        flex: 1,
+        textAlign: 'center',
     },
     scrollContent: {
-        padding: 16,
+        paddingVertical: 20,
+        paddingHorizontal: 20,
     },
     section: {
-        marginBottom: 24,
+        marginBottom: 30,
     },
     sectionTitle: {
         fontSize: 14,
-        fontWeight: 'bold',
+        fontWeight: '800',
         marginBottom: 8,
         marginLeft: 4,
         textTransform: 'uppercase',
+        letterSpacing: 1.5,
+        opacity: 0.8,
     },
     sectionDescription: {
         fontSize: 13,
-        color: 'gray',
-        marginBottom: 12,
+        marginBottom: 16,
         marginLeft: 4,
-    },
-    card: {
-        borderRadius: 16,
-        overflow: 'hidden',
-        // Shadow for light mode
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
-        elevation: 2,
-    },
-    row: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 16,
-        paddingHorizontal: 16,
-        borderBottomWidth: StyleSheet.hairlineWidth,
-    },
-    rowMain: {
-        flex: 1,
-    },
-    rowTitle: {
-        fontSize: 16,
+        lineHeight: 18,
         fontWeight: '500',
+        opacity: 0.7,
     },
-    rowValue: {
-        fontSize: 14,
-        color: 'gray',
-        marginTop: 2,
+    hint: {
+        fontSize: 12,
+        marginTop: 12,
+        marginLeft: 8,
+        lineHeight: 16,
+        fontWeight: '500',
+        opacity: 0.5,
     }
 });

@@ -11,7 +11,7 @@ const MEDIA_URL = BACKEND_URL ? `${BACKEND_URL}/media` : null;
 
 /**
  * Constructs a full media URL from a relative path
- * @param relativePath - The relative path from backend (e.g., "/media/chat_files/image.jpg")
+ * @param relativePath - The relative path from backend (e.g., "/media/chat_files/image.jpg" or "chat_files/image.jpg")
  * @returns Full URL (e.g., "http://192.168.76.173:8001/media/chat_files/image.jpg")
  */
 export const getMediaUrl = (relativePath: string | null | undefined): string | null => {
@@ -22,9 +22,20 @@ export const getMediaUrl = (relativePath: string | null | undefined): string | n
         return relativePath;
     }
 
-    // Remove leading slash if present to avoid double slashes
-    const cleanPath = relativePath.startsWith('/') ? relativePath.slice(1) : relativePath;
+    // If it's a local file URI, return as-is
+    if (relativePath.startsWith('file://')) {
+        return relativePath;
+    }
 
+    // Remove leading slash if present
+    let cleanPath = relativePath.startsWith('/') ? relativePath.slice(1) : relativePath;
+
+    // If the path already starts with 'media/', don't add it again
+    if (cleanPath.startsWith('media/')) {
+        return `${BACKEND_URL}/${cleanPath}`;
+    }
+
+    // Otherwise, add /media/ prefix
     return `${MEDIA_URL}/${cleanPath}`;
 };
 

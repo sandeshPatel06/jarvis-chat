@@ -28,7 +28,7 @@ export default function ContactProfileScreen() {
     const bio = 'Available';
 
     return (
-        <ScreenWrapper style={styles.container}>
+        <ScreenWrapper style={styles.container} edges={['top', 'left', 'right', 'bottom']}>
             <Stack.Screen options={{ headerShown: false }} />
 
             {/* Header with Back Button */}

@@ -1,74 +1,108 @@
-import { ScreenWrapper } from '@/components/ScreenWrapper';
-import { Text, View } from '@/components/Themed';
-import { useStore } from '@/store';
-import { useAppTheme } from '@/hooks/useAppTheme';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { ScrollView, StyleSheet, TouchableOpacity, Linking } from 'react-native';
+import React, { useCallback } from 'react';
+import { ScrollView, StyleSheet, TouchableOpacity, View, Text, Linking } from 'react-native';
 import { useRouter } from 'expo-router';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as WebBrowser from 'expo-web-browser';
 import * as Device from 'expo-device';
 
+import { ScreenWrapper } from '@/components/ScreenWrapper';
+import { useStore } from '@/store';
+import { useAppTheme } from '@/hooks/useAppTheme';
+import SettingRow from '@/components/settings/SettingRow';
+import SettingCard from '@/components/settings/SettingCard';
+
 export default function HelpSettingsScreen() {
-    const { colors, isDark } = useAppTheme();
+    const { colors } = useAppTheme();
     const showAlert = useStore((state) => state.showAlert);
     const router = useRouter();
 
-    const handleHelpCenter = async () => {
+    const handleHelpCenter = useCallback(async () => {
         try {
             await WebBrowser.openBrowserAsync('https://support.jarvis-chat.com');
         } catch (error) {
             showAlert('Error', 'Could not open help center. Please try again later.');
         }
-    };
+    }, [showAlert]);
 
-    const handleContactUs = async () => {
+    const handleContactUs = useCallback(async () => {
         const url = 'mailto:support@jarvis-chat.com?subject=Jarvis AI Support Request';
-        const canOpen = await Linking.canOpenURL(url);
-        if (canOpen) {
-            await Linking.openURL(url);
-        } else {
+        try {
+            const canOpen = await Linking.canOpenURL(url);
+            if (canOpen) {
+                await Linking.openURL(url);
+            } else {
+                showAlert('Contact Us', 'Please email us at support@jarvis-chat.com');
+            }
+        } catch (e) {
             showAlert('Contact Us', 'Please email us at support@jarvis-chat.com');
         }
-    };
+    }, [showAlert]);
 
-    const handlePrivacyPolicy = () => {
+    const handlePrivacyPolicy = useCallback(() => {
         router.push('/settings/privacy');
-    };
+    }, [router]);
 
-    const handleAppInfo = () => {
+    const handleAppInfo = useCallback(() => {
         const deviceInfo = `Device: ${Device.modelName || 'Unknown Device'}\nOS: ${Device.osName} ${Device.osVersion || ''}`;
         showAlert('App Info', `Jarvis AI v1.0.0\nDeveloped by High-Tech Services\nBuild 2026.01.27\n\n${deviceInfo}`);
-    };
-
-    const SettingRow = ({ title, icon, onPress }: any) => (
-        <TouchableOpacity
-            style={[styles.row, { borderBottomColor: colors.itemSeparator }]}
-            onPress={onPress}
-        >
-            <View style={styles.iconContainer}>
-                <FontAwesome name={icon} size={18} color={colors.primary} />
-            </View>
-            <Text style={[styles.rowTitle, { color: colors.text }]}>{title}</Text>
-            <FontAwesome name="chevron-right" size={14} color={colors.tabIconDefault} />
-        </TouchableOpacity>
-    );
+    }, [showAlert]);
 
     return (
         <ScreenWrapper style={styles.container} edges={['top', 'left', 'right', 'bottom']}>
             <View style={[styles.header, { borderBottomColor: colors.itemSeparator }]}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <FontAwesome name="question-circle" size={18} color={colors.primary} />
+                    <FontAwesome name="chevron-left" size={20} color={colors.primary} />
                 </TouchableOpacity>
                 <Text style={[styles.headerTitle, { color: colors.text }]}>Help</Text>
-                {/* <View style={{ width: 40 }} /> */}
+                <View style={{ width: 40 }} />
             </View>
 
-            <ScrollView contentContainerStyle={styles.scrollContent}>
-                <View style={[styles.card, { backgroundColor: isDark ? colors.inputBackground : '#fff' }]}>
-                    <SettingRow title="Help Center" icon="question-circle" onPress={handleHelpCenter} />
-                    <SettingRow title="Contact us" icon="envelope-o" onPress={handleContactUs} />
-                    <SettingRow title="Terms and Privacy Policy" icon="file-text-o" onPress={handlePrivacyPolicy} />
-                    <SettingRow title="App info" icon="info-circle" onPress={handleAppInfo} />
+            <ScrollView
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+            >
+                <View style={styles.section}>
+                    <Text style={[styles.sectionTitle, { color: colors.primary }]}>Support</Text>
+                    <SettingCard>
+                        <SettingRow
+                            title="Help Center"
+                            icon="question-circle"
+                            onPress={handleHelpCenter}
+                            color="#4FACFE"
+                        />
+                        <SettingRow
+                            title="Contact us"
+                            icon="envelope"
+                            onPress={handleContactUs}
+                            color="#6C63FF"
+                            isLast
+                        />
+                    </SettingCard>
+                </View>
+
+                <View style={styles.section}>
+                    <Text style={[styles.sectionTitle, { color: colors.primary }]}>Legal & Info</Text>
+                    <SettingCard>
+                        <SettingRow
+                            title="Terms and Privacy Policy"
+                            icon="file-text"
+                            onPress={handlePrivacyPolicy}
+                            color="#38F9D7"
+                        />
+                        <SettingRow
+                            title="App info"
+                            icon="info-circle"
+                            onPress={handleAppInfo}
+                            color="#A18CD1"
+                            isLast
+                        />
+                    </SettingCard>
+                </View>
+
+                <View style={styles.footer}>
+                    <Text style={[styles.footerText, { color: colors.textSecondary }]}>from</Text>
+                    <Text style={[styles.footerBrand, { color: colors.primary }]}>HIGH-TECH SERVICES</Text>
+                    <Text style={[styles.version, { color: colors.textSecondary }]}>Version 1.0.0</Text>
                 </View>
             </ScrollView>
         </ScreenWrapper>
@@ -76,13 +110,62 @@ export default function HelpSettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1 },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 15, paddingTop: 20, paddingBottom: 12, borderBottomWidth: StyleSheet.hairlineWidth },
-    backButton: { padding: 5, width: 40 },
-    headerTitle: { fontSize: 18, fontWeight: 'bold', marginVertical: 10 },
-    scrollContent: { padding: 16 },
-    card: { borderRadius: 16, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2 },
-    row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 16, borderBottomWidth: StyleSheet.hairlineWidth },
-    iconContainer: { width: 32, alignItems: 'center', marginRight: 12 },
-    rowTitle: { flex: 1, fontSize: 16, fontWeight: '500' }
+    container: {
+        flex: 1,
+    },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingBottom: 15,
+        borderBottomWidth: 0.5,
+    },
+    backButton: {
+        padding: 5,
+        width: 40,
+    },
+    headerTitle: {
+        fontSize: 18,
+        fontWeight: '800',
+        flex: 1,
+        textAlign: 'center',
+    },
+    scrollContent: {
+        paddingVertical: 20,
+        paddingHorizontal: 20,
+    },
+    section: {
+        marginBottom: 30,
+    },
+    sectionTitle: {
+        fontSize: 14,
+        fontWeight: '800',
+        marginBottom: 16,
+        marginLeft: 4,
+        textTransform: 'uppercase',
+        letterSpacing: 1.5,
+        opacity: 0.8,
+    },
+    footer: {
+        alignItems: 'center',
+        marginTop: 40,
+        marginBottom: 20,
+    },
+    footerText: {
+        fontSize: 12,
+        fontWeight: '500',
+        opacity: 0.5,
+    },
+    footerBrand: {
+        fontSize: 14,
+        fontWeight: '800',
+        letterSpacing: 2,
+        marginTop: 4,
+    },
+    version: {
+        fontSize: 12,
+        marginTop: 12,
+        fontWeight: '500',
+        opacity: 0.5,
+    }
 });

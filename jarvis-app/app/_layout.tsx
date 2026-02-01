@@ -4,21 +4,27 @@ import { useFonts } from 'expo-font';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as SystemUI from 'expo-system-ui';
+import { AppState, BackHandler } from 'react-native';
 
 import Colors from '@/constants/Colors';
 import { useStore } from '@/store';
+import { getFCMToken, requestFirebasePermission, setupForegroundHandler, setupNotificationOpenedHandler, setupTokenRefreshListener } from '@/services/firebaseMessaging';
 import CustomToast from '@/components/CustomToast';
 import CustomAlert from '@/components/CustomAlert';
 import IncomingCallModal from '@/components/IncomingCallModal';
 import { CallMiniWindow } from '@/components/chat/CallMiniWindow';
-import { requestNotificationPermissions, setForegroundNotificationHandler, registerForPushNotificationsAsync } from '@/utils/notifications';
 import * as Notifications from 'expo-notifications';
 import { api } from '@/services/api';
+import { LockScreen } from '@/components/LockScreen';
+
+// Initialize Firebase listeners at module level if needed
+setupNotificationOpenedHandler();
+
 
 
 
@@ -50,51 +56,65 @@ export default function RootLayout() {
   }, [error]);
 
   useEffect(() => {
-    // 3. Register for push notifications
     if (token) {
-      registerForPushNotificationsAsync().then(async (pushToken) => {
-        if (pushToken) {
-          // Send token to backend
-          try {
-            console.log('Push Token:', pushToken);
-            // Assuming updateProfile can handle fcm_token or push_token update
-            // checking api.auth.updateProfile definition... it takes (token, data)
-            // We'll try updating 'fcm_token' or similar. 
-            // Based on common practices, let's try sending it.
-            // If the backend expects a specific endpoint, we might need a dedicated API call.
-            // For now, logging it is safe, and we should try to update it if we knew the field.
-            // Given the user instructions "ensure backend also store the settings value", 
-            // I will attempt to update the profile with 'fcm_token'.
-            await api.auth.updateProfile(token, { fcm_token: pushToken });
-          } catch (e) {
-            console.error('Failed to update push token', e);
+      requestFirebasePermission().then(async (granted) => {
+        if (granted) {
+          const fcmToken = await getFCMToken();
+          if (fcmToken) {
+            try {
+              console.log('FCM Token:', fcmToken);
+              await api.auth.updateProfile(token, { fcm_token: fcmToken });
+            } catch (e) {
+              console.error('Failed to update FCM token', e);
+            }
           }
         }
       });
     }
 
-    // 4. Set dynamic notification handler (Foreground Suppression)
-    Notifications.setNotificationHandler({
-      handleNotification: async (notification) => {
-        const data = notification.request.content.data;
-        const currentActiveChatId = useStore.getState().activeChatId;
+    // Setup Firebase listeners
+    const unsubscribeForeground = setupForegroundHandler();
+    const unsubscribeRefresh = setupTokenRefreshListener();
 
-        // Check if notification belongs to the currently open chat
-        // Adjust 'conversation_id' based on your actual payload structure
-        const notificationChatId = data?.conversation_id || data?.chat_id;
-
-        const shouldSuppress = currentActiveChatId && notificationChatId && String(currentActiveChatId) === String(notificationChatId);
-
-        return {
-          shouldShowAlert: !shouldSuppress, // Suppress usage if chat is open
-          shouldPlaySound: !shouldSuppress,
-          shouldSetBadge: false,
-          shouldShowBanner: !shouldSuppress,
-          shouldShowList: !shouldSuppress,
-        };
-      },
-    });
+    return () => {
+      unsubscribeForeground();
+      unsubscribeRefresh();
+    };
   }, [token]);
+
+  useEffect(() => {
+    // Handle AppState changes (minimize call when app goes to background)
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      const { callState, setIsMinimized } = useStore.getState();
+      if (nextAppState === 'background' && callState.isCalling && !callState.isMinimized && !callState.isRequestingPermissions) {
+        console.log('[AppState] App going to background, minimizing active call');
+        setIsMinimized(true);
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    // Handle hardware back button for Android
+    const backAction = () => {
+      const { callState, setIsMinimized } = useStore.getState();
+      const segments = useStore.getState().activeChatId; // Simplistic check or use router segments if possible
+
+      // If we are in a call screen (can check segments or state)
+      // This is a bit tricky with Expo Router in a global layout
+      // Better to handle inside CallScreen, but user asked for "back our minimize app"
+      // Let's implement it here as a fallback or directly in CallScreen.
+      // actually CallScreen is better for back button.
+      return false;
+    };
+
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+
+    return () => backHandler.remove();
+  }, []);
 
   useEffect(() => {
     if (loaded) {
@@ -117,6 +137,23 @@ import { KeyboardProvider } from 'react-native-keyboard-controller';
 // ...
 
 function RootLayoutNav() {
+  const [isLocked, setIsLocked] = useState(true);
+  const [appLockEnabled, setAppLockEnabled] = useState(false);
+
+  // Check if app lock is enabled from AsyncStorage
+  useEffect(() => {
+    import('@react-native-async-storage/async-storage').then(async (AsyncStorage) => {
+      const lockEnabled = await AsyncStorage.default.getItem('appLockEnabled');
+      setAppLockEnabled(lockEnabled === 'true');
+      if (lockEnabled !== 'true') {
+        setIsLocked(false);
+      }
+    });
+  }, []);
+
+  if (appLockEnabled && isLocked) {
+    return <LockScreen onUnlock={() => setIsLocked(false)} />;
+  }
   const { token, hasHydrated, theme: userTheme } = useStore();
   const systemScheme = useColorScheme();
   const segments = useSegments();
@@ -155,7 +192,7 @@ function RootLayoutNav() {
     }
 
     if (token) {
-      requestNotificationPermissions();
+      requestFirebasePermission();
     }
   }, [token, segments, hasHydrated]);
 
@@ -177,6 +214,7 @@ function RootLayoutNav() {
               }}
             >
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="settings" options={{ headerShown: false }} />
               <Stack.Screen
                 name="chat/[id]"
                 options={{

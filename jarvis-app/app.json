@@ -22,8 +22,6 @@
         "NSMicrophoneUsageDescription": "This app uses the microphone for voice and video calls.",
         "UIBackgroundModes": [
           "audio",
-          "voip",
-          "audio",
           "voip"
         ]
       }
@@ -43,10 +41,7 @@
         "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.INTERNET",
-        "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS",
-        "android.permission.INTERNET"
+        "android.permission.RECEIVE_BOOT_COMPLETED"
       ]
     },
     "web": {
@@ -62,7 +57,10 @@
       "expo-secure-store",
       "expo-localization",
       "expo-asset",
-      "expo-notifications"
+      "expo-notifications",
+      "@react-native-firebase/app",
+      "@react-native-firebase/messaging",
+      "expo-mail-composer"
     ],
     "experiments": {
       "typedRoutes": true
@@ -70,10 +68,10 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "65b653b8-cbc6-4e88-8b68-2ade79e84097"
+        "projectId": "94442553-97dc-4324-bcc5-b73b296997a1"
       }
     },
-    "owner": "sandesh032",
+    "owner": "sandesh007s-organization",
     "runtimeVersion": {
       "policy": "appVersion"
     },

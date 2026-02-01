@@ -20,7 +20,8 @@ export const initDatabase = async () => {
                 avatar TEXT,
                 last_message TEXT,
                 last_message_time TEXT,
-                unread_count INTEGER
+                unread_count INTEGER,
+                user_id INTEGER
             );
             CREATE TABLE IF NOT EXISTS messages (
                 id TEXT PRIMARY KEY,
@@ -44,6 +45,7 @@ export const initDatabase = async () => {
         try { await database.execAsync('ALTER TABLE messages ADD COLUMN file TEXT;'); } catch (e) { }
         try { await database.execAsync('ALTER TABLE messages ADD COLUMN file_type TEXT;'); } catch (e) { }
         try { await database.execAsync('ALTER TABLE messages ADD COLUMN file_name TEXT;'); } catch (e) { }
+        try { await database.execAsync('ALTER TABLE conversations ADD COLUMN user_id INTEGER;'); } catch (e) { }
 
         console.log('Database initialized');
     } catch (error) {
@@ -55,8 +57,8 @@ export const saveConversation = async (chat: Chat) => {
     const database = await openDatabase();
     try {
         await database.runAsync(
-            `INSERT OR REPLACE INTO conversations (id, name, avatar, last_message, last_message_time, unread_count) VALUES (?, ?, ?, ?, ?, ?)`,
-            [chat.id, chat.name, chat.avatar || '', chat.lastMessage, chat.lastMessageTime.toISOString(), chat.unreadCount]
+            `INSERT OR REPLACE INTO conversations (id, name, avatar, last_message, last_message_time, unread_count, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [chat.id, chat.name, chat.avatar || '', chat.lastMessage, chat.lastMessageTime.toISOString(), chat.unreadCount, chat.user_id || null]
         );
     } catch (error) {
         console.error('Error saving conversation:', error);
@@ -66,6 +68,9 @@ export const saveConversation = async (chat: Chat) => {
 export const saveMessage = async (message: Message, conversationId: string, isUnsent: boolean = false) => {
     const database = await openDatabase();
     try {
+        // Ensure file is a string (it might be an object from some sources)
+        const fileValue = typeof message.file === 'string' ? message.file : (message.file ? String(message.file) : '');
+
         await database.runAsync(
             `INSERT OR REPLACE INTO messages (id, conversation_id, text, sender, timestamp, is_read, is_delivered, reactions, reply_to_json, is_unsent, file, file_type, file_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
@@ -79,7 +84,7 @@ export const saveMessage = async (message: Message, conversationId: string, isUn
                 JSON.stringify(message.reactions || []),
                 JSON.stringify(message.reply_to || null),
                 isUnsent ? 1 : 0,
-                message.file || '',
+                fileValue,
                 message.file_type || '',
                 message.file_name || '',
             ]
@@ -100,6 +105,7 @@ export const getConversations = async (): Promise<Chat[]> => {
             lastMessage: row.last_message,
             lastMessageTime: new Date(row.last_message_time),
             unreadCount: row.unread_count,
+            user_id: row.user_id,
             messages: []
         }));
     } catch (error) {

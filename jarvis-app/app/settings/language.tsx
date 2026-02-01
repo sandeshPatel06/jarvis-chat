@@ -1,14 +1,17 @@
-import { ScreenWrapper } from '@/components/ScreenWrapper';
-import { Text, View } from '@/components/Themed';
-import { useStore } from '@/store';
-import { useAppTheme } from '@/hooks/useAppTheme';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useCallback } from 'react';
+import { ScrollView, StyleSheet, TouchableOpacity, View, Text } from 'react-native';
 import { useRouter } from 'expo-router';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as Localization from 'expo-localization';
 
+import { ScreenWrapper } from '@/components/ScreenWrapper';
+import { useStore } from '@/store';
+import { useAppTheme } from '@/hooks/useAppTheme';
+import SettingRow from '@/components/settings/SettingRow';
+import SettingCard from '@/components/settings/SettingCard';
+
 export default function LanguageSettingsScreen() {
-    const { colors, isDark } = useAppTheme();
+    const { colors } = useAppTheme();
     const user = useStore((state) => state.user);
     const updateSettings = useStore((state) => state.updateSettings);
     const router = useRouter();
@@ -24,79 +27,108 @@ export default function LanguageSettingsScreen() {
     const systemLocale = Localization.getLocales()[0];
     const systemLanguageName = languages.find(l => l.code === systemLocale.languageCode)?.name || systemLocale.languageCode;
 
-    const handleSelect = async (code: string) => {
+    const handleSelect = useCallback(async (code: string) => {
         try {
             await updateSettings({ app_language: code });
-        } catch (error) {
-            // Error handled by store
-        }
-    };
+        } catch (error) { }
+    }, [updateSettings]);
 
     return (
         <ScreenWrapper style={styles.container} edges={['top', 'left', 'right', 'bottom']}>
             <View style={[styles.header, { borderBottomColor: colors.itemSeparator }]}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <FontAwesome name="globe" size={18} color={colors.primary} />
+                    <FontAwesome name="chevron-left" size={20} color={colors.primary} />
                 </TouchableOpacity>
                 <Text style={[styles.headerTitle, { color: colors.text }]}>App Language</Text>
-                {/* <View style={{ width: 40 }} /> */}
+                <View style={{ width: 40 }} />
             </View>
 
-            <ScrollView contentContainerStyle={styles.scrollContent}>
-                <View style={styles.sectionHeader}>
-                    <Text style={[styles.sectionTitle, { color: colors.tabIconDefault }]}>System Language</Text>
-                </View>
-                <View style={[styles.card, { backgroundColor: isDark ? colors.inputBackground : '#fff', marginBottom: 20 }]}>
-                    <TouchableOpacity
-                        style={styles.row}
-                        onPress={() => handleSelect(systemLocale.languageCode || 'en')}
-                    >
-                        <View style={styles.rowMain}>
-                            <Text style={[styles.rowTitle, { color: colors.text }]}>System Default</Text>
-                            <Text style={styles.rowValue}>{systemLanguageName}</Text>
-                        </View>
-                        {user?.app_language === systemLocale.languageCode && (
-                            <FontAwesome name="check-circle" size={20} color={colors.primary} />
-                        )}
-                    </TouchableOpacity>
+            <ScrollView
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+            >
+                <View style={styles.section}>
+                    <Text style={[styles.sectionTitle, { color: colors.primary }]}>Device Language</Text>
+                    <SettingCard>
+                        <SettingRow
+                            title="System Default"
+                            subtitle={systemLanguageName}
+                            isSelected={user?.app_language === systemLocale.languageCode}
+                            onPress={() => handleSelect(systemLocale.languageCode || 'en')}
+                            isLast
+                        />
+                    </SettingCard>
                 </View>
 
-                <View style={styles.sectionHeader}>
-                    <Text style={[styles.sectionTitle, { color: colors.tabIconDefault }]}>All Languages</Text>
+                <View style={styles.section}>
+                    <Text style={[styles.sectionTitle, { color: colors.primary }]}>Available Languages</Text>
+                    <SettingCard>
+                        {languages.map((lang, index) => (
+                            <SettingRow
+                                key={lang.code}
+                                title={lang.name}
+                                subtitle={lang.native}
+                                isSelected={user?.app_language === lang.code}
+                                onPress={() => handleSelect(lang.code)}
+                                isLast={index === languages.length - 1}
+                            />
+                        ))}
+                    </SettingCard>
                 </View>
-                <View style={[styles.card, { backgroundColor: isDark ? colors.inputBackground : '#fff' }]}>
-                    {languages.map((lang) => (
-                        <TouchableOpacity
-                            key={lang.code}
-                            style={[styles.row, { borderBottomColor: colors.itemSeparator }]}
-                            onPress={() => handleSelect(lang.code)}
-                        >
-                            <View style={styles.rowMain}>
-                                <Text style={[styles.rowTitle, { color: colors.text }]}>{lang.name}</Text>
-                                <Text style={styles.rowValue}>{lang.native}</Text>
-                            </View>
-                            {user?.app_language === lang.code && (
-                                <FontAwesome name="check-circle" size={20} color={colors.primary} />
-                            )}
-                        </TouchableOpacity>
-                    ))}
-                </View>
+
+                <Text style={[styles.hint, { color: colors.textSecondary }]}>
+                    Changing the language will update the entire app interface.
+                </Text>
             </ScrollView>
         </ScreenWrapper>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1 },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 15, paddingTop: 20, paddingBottom: 12, borderBottomWidth: StyleSheet.hairlineWidth },
-    backButton: { padding: 5, width: 40 },
-    headerTitle: { fontSize: 18, fontWeight: 'bold', marginVertical: 10 },
-    scrollContent: { padding: 16 },
-    card: { borderRadius: 16, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2 },
-    row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 16, borderBottomWidth: StyleSheet.hairlineWidth },
-    rowMain: { flex: 1 },
-    rowTitle: { fontSize: 16, fontWeight: '500' },
-    rowValue: { fontSize: 14, color: 'gray', marginTop: 2 },
-    sectionHeader: { marginBottom: 8, paddingHorizontal: 4 },
-    sectionTitle: { fontSize: 13, fontWeight: '600', textTransform: 'uppercase' }
+    container: {
+        flex: 1,
+    },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingBottom: 15,
+        borderBottomWidth: 0.5,
+    },
+    backButton: {
+        padding: 5,
+        width: 40,
+    },
+    headerTitle: {
+        fontSize: 18,
+        fontWeight: '800',
+        flex: 1,
+        textAlign: 'center',
+    },
+    scrollContent: {
+        paddingVertical: 20,
+        paddingHorizontal: 20,
+    },
+    section: {
+        marginBottom: 30,
+    },
+    sectionTitle: {
+        fontSize: 14,
+        fontWeight: '800',
+        marginBottom: 16,
+        marginLeft: 4,
+        textTransform: 'uppercase',
+        letterSpacing: 1.5,
+        opacity: 0.8,
+    },
+    hint: {
+        fontSize: 12,
+        marginTop: 12,
+        marginLeft: 8,
+        lineHeight: 16,
+        fontWeight: '500',
+        opacity: 0.5,
+        textAlign: 'center',
+        paddingHorizontal: 40,
+    }
 });

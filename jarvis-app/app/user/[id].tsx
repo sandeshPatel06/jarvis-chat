@@ -22,6 +22,7 @@ export default function UserProfileScreen() {
     const blockUser = useStore((state) => state.blockUser);
     const unblockUser = useStore((state) => state.unblockUser);
     const fetchBlockedUsers = useStore((state) => state.fetchBlockedUsers);
+    const startCall = useStore((state) => state.startCall);
 
     const [userProfile, setUserProfile] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
@@ -84,6 +85,15 @@ export default function UserProfileScreen() {
         }
     };
 
+    const handleCall = (isVideo: boolean = false) => {
+        if (chat) {
+            startCall(chat.id, isVideo);
+            router.push(`/call/${chat.id}`);
+        } else {
+            showToast('info', 'Info', 'Start a conversation from contacts to make calls');
+        }
+    };
+
     if (loading) {
         return (
             <ScreenWrapper style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'left', 'right', 'bottom']}>
@@ -138,24 +148,30 @@ export default function UserProfileScreen() {
                 {/* Actions Row */}
                 <View style={styles.actionsRow}>
                     <TouchableOpacity
-                        style={[styles.actionButton, { backgroundColor: colors.inputBackground }]}
+                        style={[styles.actionButton, { backgroundColor: colors.card, borderColor: colors.cardBorder, borderWidth: 1 }]}
                         onPress={handleMessage}
                     >
                         <FontAwesome name="comment" size={24} color={colors.primary} />
                         <Text style={[styles.actionText, { color: colors.primary }]}>Message</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={[styles.actionButton, { backgroundColor: colors.inputBackground }]}>
+                    <TouchableOpacity
+                        style={[styles.actionButton, { backgroundColor: colors.card, borderColor: colors.cardBorder, borderWidth: 1 }]}
+                        onPress={() => handleCall(false)}
+                    >
                         <FontAwesome name="phone" size={24} color={colors.primary} />
                         <Text style={[styles.actionText, { color: colors.primary }]}>Audio</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={[styles.actionButton, { backgroundColor: colors.inputBackground }]}>
+                    <TouchableOpacity
+                        style={[styles.actionButton, { backgroundColor: colors.card, borderColor: colors.cardBorder, borderWidth: 1 }]}
+                        onPress={() => handleCall(true)}
+                    >
                         <FontAwesome name="video-camera" size={24} color={colors.primary} />
                         <Text style={[styles.actionText, { color: colors.primary }]}>Video</Text>
                     </TouchableOpacity>
                 </View>
 
                 {/* Info Section */}
-                <View style={[styles.section, { backgroundColor: colors.inputBackground }]}>
+                <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.cardBorder, borderWidth: 1 }]}>
                     {userProfile.bio && (
                         <>
                             <View style={styles.item}>
@@ -175,7 +191,7 @@ export default function UserProfileScreen() {
                 </View>
 
                 {/* Operations */}
-                <View style={[styles.section, { backgroundColor: colors.inputBackground }]}>
+                <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.cardBorder, borderWidth: 1 }]}>
                     <TouchableOpacity style={styles.item} onPress={() => {
                         if (isBlocked) {
                             Alert.alert(

@@ -35,9 +35,29 @@ class CheckContactsView(APIView):
 
     def post(self, request):
         phone_numbers = request.data.get('phone_numbers', [])
-        # Simple normalization/stripping could be added here
-        users = User.objects.filter(phone_number__in=phone_numbers)
-        serializer = UserSerializer(users, many=True)
+        
+        # Normalize phone numbers: remove non-numeric chars and keep last 10 digits
+        def normalize_phone(phone):
+            # Remove all non-numeric characters
+            cleaned = ''.join(filter(str.isdigit, str(phone)))
+            # Keep last 10 digits (removes country codes like 91, 1, etc.)
+            if len(cleaned) > 10:
+                cleaned = cleaned[-10:]
+            return cleaned
+        
+        # Normalize incoming phone numbers
+        normalized_phones = [normalize_phone(p) for p in phone_numbers if p]
+        
+        # Get all users and filter by normalized phone numbers
+        all_users = User.objects.exclude(phone_number__isnull=True).exclude(phone_number='')
+        matched_users = []
+        
+        for user in all_users:
+            user_phone_normalized = normalize_phone(user.phone_number)
+            if user_phone_normalized in normalized_phones:
+                matched_users.append(user)
+        
+        serializer = UserSerializer(matched_users, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 class UserProfileView(generics.RetrieveUpdateAPIView):

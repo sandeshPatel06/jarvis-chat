@@ -1,18 +1,15 @@
+import React, { useState, useCallback } from 'react';
+import { Image, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, View, Text } from 'react-native';
+import { useRouter } from 'expo-router';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { LinearGradient } from 'expo-linear-gradient';
+
 import { ScreenWrapper } from '@/components/ScreenWrapper';
-import { Text, View } from '@/components/Themed';
-import Colors from '@/constants/Colors';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { api } from '@/services/api';
 import { useStore } from '@/store';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { Image, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
-
-
 import { getMediaUrl } from '@/utils/media';
-
+import SettingCard from '@/components/settings/SettingCard';
 
 export default function ProfileScreen() {
     const router = useRouter();
@@ -20,7 +17,6 @@ export default function ProfileScreen() {
     const token = useStore((state) => state.token);
     const updateUser = useStore((state) => state.updateUser);
     const showToast = useStore((state) => state.showToast);
-
 
     const [name, setName] = useState(user?.username || '');
     const [about, setAbout] = useState(user?.bio || 'Available');
@@ -30,27 +26,26 @@ export default function ProfileScreen() {
 
     const avatarUrl = getMediaUrl(user?.profile_picture);
 
-    const pickImage = async () => {
-        const result = await ImagePicker.launchImageLibraryAsync({
+    const pickImage = useCallback(async () => {
+        const result = await import('expo-image-picker').then(m => m.launchImageLibraryAsync({
             mediaTypes: ['images'],
             allowsEditing: true,
             aspect: [1, 1],
             quality: 1,
-        });
+        }));
 
         if (!result.canceled) {
             setImage(result.assets[0].uri);
         }
-    };
+    }, []);
 
-    const handleSave = async () => {
+    const handleSave = useCallback(async () => {
         if (!token) return;
         setSaving(true);
         try {
             let updatedUser;
 
             if (image) {
-                // If there's a new image, use FormData
                 const formData = new FormData();
                 formData.append('username', name);
                 formData.append('bio', about);
@@ -67,7 +62,6 @@ export default function ProfileScreen() {
 
                 updatedUser = await api.auth.updateProfile(token, formData);
             } else {
-                // Otherwise just use JSON
                 updatedUser = await api.auth.updateProfile(token, {
                     username: name,
                     bio: about
@@ -83,85 +77,98 @@ export default function ProfileScreen() {
         } finally {
             setSaving(false);
         }
-    };
-
+    }, [token, image, name, about, updateUser, showToast]);
 
     return (
-        <ScreenWrapper style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'left', 'right', 'bottom']}>
-            <View style={[styles.header, { borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }]}>
+        <ScreenWrapper style={styles.container} edges={['top', 'left', 'right', 'bottom']}>
+            <View style={[styles.header, { borderBottomColor: colors.itemSeparator }]}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <FontAwesome name="user-circle" size={18} color={colors.primary} />
+                    <FontAwesome name="chevron-left" size={20} color={colors.primary} />
                 </TouchableOpacity>
-                <Text style={[styles.headerTitle, { color: colors.text }]}>Profile</Text>
+                <Text style={[styles.headerTitle, { color: colors.text }]}>Edit Profile</Text>
                 <TouchableOpacity onPress={handleSave} disabled={saving} style={styles.headerRight}>
                     {saving ? (
-                        <ActivityIndicator size="small" color={colors.accent} />
+                        <ActivityIndicator size="small" color={colors.primary} />
                     ) : (
-                        <Text style={{ color: colors.primary, fontWeight: 'bold', fontSize: 16 }}>
+                        <Text style={{ color: colors.primary, fontWeight: '800', fontSize: 16 }}>
                             Save
                         </Text>
                     )}
                 </TouchableOpacity>
             </View>
 
-            <View style={styles.content}>
-                <View style={styles.avatarContainer}>
-                    <TouchableOpacity onPress={pickImage} activeOpacity={0.8}>
-                        <View style={[styles.cameraButton, { backgroundColor: colors.primary }]}>
-                            <FontAwesome name="camera" size={18} color="white" />
-                        </View>
-                    </TouchableOpacity>
-                </View>
-
-                <View style={[styles.card, { backgroundColor: colors.cardSecondary }]}>
-                    <View style={styles.inputGroup}>
-                        <View style={styles.iconContainer}>
-                            <FontAwesome name="user" size={20} color={colors.accent} />
-                        </View>
-                        <View style={styles.textContainer}>
-                            <Text style={styles.label}>Name</Text>
-                            <TextInput
-                                style={[styles.input, { color: colors.text, borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }]}
-                                value={name}
-                                onChangeText={setName}
-                                placeholder="Enter your name"
-                                placeholderTextColor="#666"
-                            />
-                            <Text style={styles.hint}>This name will be visible to your contacts in chats.</Text>
-                        </View>
+            <KeyboardAvoidingView
+                style={{ flex: 1 }}
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}
+            >
+                <ScrollView
+                    contentContainerStyle={styles.scrollContent}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                >
+                    <View style={styles.avatarContainer}>
+                        <TouchableOpacity onPress={pickImage} activeOpacity={0.8} style={styles.avatarWrapper}>
+                            <View style={[styles.avatarBorder, { borderColor: isDark ? colors.cardBorder : colors.primary + '30' }]}>
+                                <Image
+                                    source={image ? { uri: image } : avatarUrl ? { uri: avatarUrl } : require('@/assets/images/default-avatar.png')}
+                                    style={styles.avatar}
+                                />
+                            </View>
+                            <LinearGradient
+                                colors={[colors.primary, colors.secondary]}
+                                style={[styles.cameraButton, { borderColor: isDark ? colors.background : 'white' }]}
+                            >
+                                <FontAwesome name="camera" size={16} color="white" />
+                            </LinearGradient>
+                        </TouchableOpacity>
                     </View>
 
-                    <View style={[styles.separator, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }]} />
+                    <SettingCard style={styles.card}>
+                        <View style={styles.inputSection}>
+                            <Text style={[styles.label, { color: colors.primary }]}>Username</Text>
+                            <View style={[styles.inputContainer, { backgroundColor: isDark ? colors.background : colors.backgroundSecondary }]}>
+                                <FontAwesome name="user" size={18} color={colors.textSecondary} style={styles.inputIcon} />
+                                <TextInput
+                                    style={[styles.input, { color: colors.text }]}
+                                    value={name}
+                                    onChangeText={setName}
+                                    placeholder="Enter your name"
+                                    placeholderTextColor={colors.textSecondary + '80'}
+                                />
+                            </View>
+                            <Text style={[styles.hint, { color: colors.textSecondary }]}>This name will be visible to your contacts.</Text>
+                        </View>
 
-                    <View style={styles.inputGroup}>
-                        <View style={styles.iconContainer}>
-                            <FontAwesome name="info-circle" size={20} color={colors.accent} />
-                        </View>
-                        <View style={styles.textContainer}>
-                            <Text style={styles.label}>About</Text>
-                            <TextInput
-                                style={[styles.input, { color: colors.text, borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }]}
-                                value={about}
-                                onChangeText={setAbout}
-                                placeholder="Tell us about yourself"
-                                placeholderTextColor="#666"
-                            />
-                        </View>
-                    </View>
+                        <View style={[styles.divider, { backgroundColor: colors.itemSeparator }]} />
 
-                    <View style={[styles.separator, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }]} />
+                        <View style={styles.inputSection}>
+                            <Text style={[styles.label, { color: colors.primary }]}>About</Text>
+                            <View style={[styles.inputContainer, { backgroundColor: isDark ? colors.background : colors.backgroundSecondary }]}>
+                                <FontAwesome name="info-circle" size={18} color={colors.textSecondary} style={styles.inputIcon} />
+                                <TextInput
+                                    style={[styles.input, { color: colors.text }]}
+                                    value={about}
+                                    onChangeText={setAbout}
+                                    placeholder="Tell us about yourself"
+                                    placeholderTextColor={colors.textSecondary + '80'}
+                                    multiline
+                                />
+                            </View>
+                        </View>
 
-                    <View style={styles.inputGroup}>
-                        <View style={styles.iconContainer}>
-                            <FontAwesome name="phone" size={20} color={colors.accent} />
+                        <View style={[styles.divider, { backgroundColor: colors.itemSeparator }]} />
+
+                        <View style={styles.inputSection}>
+                            <Text style={[styles.label, { color: colors.primary }]}>Phone Number</Text>
+                            <View style={[styles.inputContainer, { backgroundColor: isDark ? colors.background : colors.backgroundSecondary, opacity: 0.6 }]}>
+                                <FontAwesome name="phone" size={18} color={colors.textSecondary} style={styles.inputIcon} />
+                                <Text style={[styles.input, { color: colors.text }]}>{user?.phone_number || 'Not verified'}</Text>
+                            </View>
                         </View>
-                        <View style={styles.textContainer}>
-                            <Text style={styles.label}>Phone</Text>
-                            <Text style={[styles.readOnlyText, { color: '#888' }]}>{user?.phone_number || 'Not verified'}</Text>
-                        </View>
-                    </View>
-                </View>
-            </View>
+                    </SettingCard>
+                </ScrollView>
+            </KeyboardAvoidingView>
         </ScreenWrapper>
     );
 }
@@ -170,17 +177,12 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
     },
-    content: {
-        padding: 16,
-    },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
-        paddingHorizontal: 15,
-        paddingTop: 20,
-        paddingBottom: 12,
-        borderBottomWidth: StyleSheet.hairlineWidth,
+        paddingHorizontal: 20,
+        paddingBottom: 15,
+        borderBottomWidth: 0.5,
     },
     backButton: {
         padding: 5,
@@ -188,17 +190,29 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontSize: 18,
-        fontWeight: 'bold',
-        marginVertical: 10,
+        fontWeight: '800',
+        flex: 1,
+        textAlign: 'center',
     },
     headerRight: {
-        position: 'absolute',
-        right: 15,
-        top: 25,
+        width: 40,
+        alignItems: 'flex-end',
+    },
+    scrollContent: {
+        paddingHorizontal: 20,
+        paddingBottom: 40,
     },
     avatarContainer: {
         alignItems: 'center',
-        marginVertical: 30,
+        marginVertical: 40,
+    },
+    avatarWrapper: {
+        position: 'relative',
+    },
+    avatarBorder: {
+        padding: 4,
+        borderRadius: 80,
+        borderWidth: 2,
     },
     avatar: {
         width: 140,
@@ -209,62 +223,54 @@ const styles = StyleSheet.create({
         position: 'absolute',
         bottom: 5,
         right: 5,
-        width: 36,
-        height: 36,
-        borderRadius: 18,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
         alignItems: 'center',
         justifyContent: 'center',
-        borderWidth: 3,
-        borderColor: 'white',
+        borderWidth: 4,
     },
     card: {
-        borderRadius: 20,
-        padding: 20,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-        elevation: 3,
+        padding: 24,
     },
-    inputGroup: {
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-    },
-    iconContainer: {
-        width: 30,
-        paddingTop: 12,
-        alignItems: 'center',
-    },
-    textContainer: {
-        flex: 1,
-        marginLeft: 15,
+    inputSection: {
+        marginBottom: 0,
     },
     label: {
-        fontSize: 12,
-        color: '#888',
-        fontWeight: '600',
+        fontSize: 13,
+        fontWeight: '800',
         textTransform: 'uppercase',
         letterSpacing: 1,
-        marginBottom: 4,
+        marginBottom: 12,
+        marginLeft: 4,
+    },
+    inputContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderRadius: 18,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+    },
+    inputIcon: {
+        marginRight: 12,
+        opacity: 0.6,
     },
     input: {
+        flex: 1,
         fontSize: 16,
-        paddingVertical: 8,
-        borderBottomWidth: 1,
-    },
-    readOnlyText: {
-        fontSize: 16,
-        paddingVertical: 8,
+        fontWeight: '500',
+        paddingVertical: 4,
     },
     hint: {
         fontSize: 12,
-        color: '#999',
-        marginTop: 6,
-        lineHeight: 16,
+        marginTop: 8,
+        marginLeft: 4,
+        fontWeight: '500',
+        opacity: 0.7,
     },
-    separator: {
+    divider: {
         height: 1,
-        marginVertical: 20,
-        marginLeft: 45,
+        marginVertical: 24,
+        opacity: 0.1,
     }
 });

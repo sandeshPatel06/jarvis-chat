@@ -6,7 +6,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Link, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScreenWrapper } from '@/components/ScreenWrapper';
+import { useAppTheme } from '@/hooks/useAppTheme';
 
 export default function LoginScreen() {
     const [username, setUsername] = useState('');
@@ -15,6 +16,7 @@ export default function LoginScreen() {
     const router = useRouter();
     const setUser = useStore(state => state.setUser);
     const showAlert = useStore(state => state.showAlert);
+    const { colors } = useAppTheme();
 
     const handleLogin = async () => {
         if (!username || !password) {
@@ -35,7 +37,7 @@ export default function LoginScreen() {
     };
 
     return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: Colors.dark.background }}>
+        <ScreenWrapper style={{ backgroundColor: colors.background }}>
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={styles.container}
@@ -70,7 +72,7 @@ export default function LoginScreen() {
 
                     <TouchableOpacity onPress={handleLogin} disabled={loading} style={styles.buttonContainer}>
                         <LinearGradient
-                            colors={[Colors.dark.primary, Colors.dark.secondary]}
+                            colors={[colors.primary, colors.secondary]}
                             style={styles.button}
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 0 }}
@@ -84,23 +86,22 @@ export default function LoginScreen() {
                     </TouchableOpacity>
 
                     <View style={styles.footer}>
-                        <Text style={styles.footerText}>Don't have an account? </Text>
+                        <Text style={[styles.footerText, { color: colors.textSecondary }]}>Don't have an account? </Text>
                         <Link href="/auth/signup" asChild>
                             <TouchableOpacity>
-                                <Text style={styles.link}>Sign Up</Text>
+                                <Text style={[styles.link, { color: colors.primary }]}>Sign Up</Text>
                             </TouchableOpacity>
                         </Link>
                     </View>
                 </View>
             </KeyboardAvoidingView>
-        </SafeAreaView>
+        </ScreenWrapper>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.dark.background,
         justifyContent: 'center',
         padding: 20,
     },
@@ -113,7 +114,6 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 32,
         fontWeight: 'bold',
-        color: Colors.dark.text,
         marginBottom: 10,
     },
     subtitle: {
@@ -126,7 +126,6 @@ const styles = StyleSheet.create({
         backgroundColor: 'transparent',
     },
     label: {
-        color: Colors.dark.text,
         marginBottom: 8,
         fontWeight: '600',
     },
@@ -163,7 +162,6 @@ const styles = StyleSheet.create({
         color: 'gray',
     },
     link: {
-        color: Colors.dark.primary,
         fontWeight: 'bold',
     },
 });

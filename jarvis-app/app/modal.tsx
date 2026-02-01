@@ -1,15 +1,16 @@
+import { ScreenWrapper } from '@/components/ScreenWrapper';
 import { StatusBar } from 'expo-status-bar';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 
 export default function ModalScreen() {
   return (
-    <View style={styles.container}>
+    <ScreenWrapper style={styles.container} edges={['top', 'left', 'right', 'bottom']}>
       <Text style={styles.title}>Modal</Text>
       <View style={styles.separator} />
 
       {/* Use a light status bar on iOS to account for the black space above the modal */}
       <StatusBar style={Platform.OS === 'ios' ? 'light' : 'auto'} />
-    </View>
+    </ScreenWrapper>
   );
 }
 

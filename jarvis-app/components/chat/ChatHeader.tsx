@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, Image, StyleSheet, Alert } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import * as SMS from 'expo-sms';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { Chat } from '@/types';
 import { useStore } from '@/store';
@@ -13,9 +14,10 @@ interface ChatHeaderProps {
     chat: Chat;
     typingUser: string | null;
     onOptionsPress: () => void;
+    onSMSPress?: () => void;
 }
 
-export const ChatHeader = ({ chat, typingUser, onOptionsPress }: ChatHeaderProps) => {
+export const ChatHeader = ({ chat, typingUser, onOptionsPress, onSMSPress }: ChatHeaderProps) => {
     const { colors } = useAppTheme();
     const router = useRouter();
     const startCall = useStore((state) => state.startCall);
@@ -28,6 +30,29 @@ export const ChatHeader = ({ chat, typingUser, onOptionsPress }: ChatHeaderProps
     const handleAudioCall = () => {
         startCall(chat.id, false);
         router.push(`/call/${chat.id}`);
+    };
+
+    const handleSMS = async () => {
+        try {
+            const isAvailable = await SMS.isAvailableAsync();
+            if (!isAvailable) {
+                Alert.alert(
+                    'SMS Not Available',
+                    'SMS is not available on this device',
+                    [{ text: 'OK' }]
+                );
+                return;
+            }
+
+            // For now, we'll use a default message. In a real app, you'd get the phone number from chat data
+            await SMS.sendSMSAsync(
+                [], // Empty array will let user enter number
+                `Hi! Let's chat on Jarvis.`
+            );
+        } catch (error) {
+            console.error('SMS error:', error);
+            Alert.alert('Error', 'Failed to open SMS');
+        }
     };
 
     const avatarUrl = getMediaUrl(chat.avatar);
@@ -54,7 +79,16 @@ export const ChatHeader = ({ chat, typingUser, onOptionsPress }: ChatHeaderProps
                 />
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.profileContainer} activeOpacity={0.7}>
+            <TouchableOpacity
+                style={styles.profileContainer}
+                activeOpacity={0.7}
+                onPress={() => {
+                    const profileId = chat.user_id || (typeof chat.id === 'number' ? chat.id : null);
+                    if (profileId) {
+                        router.push(`/user/${profileId}`);
+                    }
+                }}
+            >
                 <Image
                     source={
                         avatarUrl

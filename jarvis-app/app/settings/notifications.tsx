@@ -1,80 +1,84 @@
+import React, { useCallback } from 'react';
+import { ScrollView, StyleSheet, TouchableOpacity, View, Text } from 'react-native';
+import { useRouter } from 'expo-router';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+
 import { ScreenWrapper } from '@/components/ScreenWrapper';
-import { Text, View } from '@/components/Themed';
 import { useStore } from '@/store';
 import { useAppTheme } from '@/hooks/useAppTheme';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { ScrollView, StyleSheet, TouchableOpacity, Switch } from 'react-native';
-import { useRouter } from 'expo-router';
+import SettingRow from '@/components/settings/SettingRow';
+import SettingCard from '@/components/settings/SettingCard';
 
 export default function NotificationsSettingsScreen() {
-    const { colors, isDark } = useAppTheme();
+    const { colors } = useAppTheme();
     const user = useStore((state) => state.user);
     const updateSettings = useStore((state) => state.updateSettings);
     const router = useRouter();
 
-    const handleToggle = async (field: string, value: boolean) => {
+    const handleToggle = useCallback(async (field: string, value: boolean) => {
         try {
             await updateSettings({ [field]: value });
-        } catch (error) {
-            // Error handled by store
-        }
-    };
-
-    const SettingRow = ({ title, subtitle, isSwitch, switchValue, onSwitchChange }: any) => (
-        <View style={[styles.row, { borderBottomColor: colors.itemSeparator }]} >
-            <View style={styles.rowMain}>
-                <Text style={[styles.rowTitle, { color: colors.text }]}>{title}</Text>
-                {subtitle && <Text style={styles.rowValue}>{subtitle}</Text>}
-            </View>
-            <Switch
-                value={switchValue}
-                onValueChange={onSwitchChange}
-                trackColor={{ false: '#767577', true: colors.primary }}
-                thumbColor={'white'}
-            />
-        </View>
-    );
+        } catch (error) { }
+    }, [updateSettings]);
 
     return (
         <ScreenWrapper style={styles.container} edges={['top', 'left', 'right', 'bottom']}>
             <View style={[styles.header, { borderBottomColor: colors.itemSeparator }]}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <FontAwesome name="bell" size={18} color={colors.primary} />
+                    <FontAwesome name="chevron-left" size={20} color={colors.primary} />
                 </TouchableOpacity>
                 <Text style={[styles.headerTitle, { color: colors.text }]}>Notifications</Text>
-                {/* <View style={{ width: 40 }} /> */}
+                <View style={{ width: 40 }} />
             </View>
 
-            <ScrollView contentContainerStyle={styles.scrollContent}>
+            <ScrollView
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+            >
                 <View style={styles.section}>
-                    <Text style={[styles.sectionTitle, { color: colors.primary }]}>Message Notifications</Text>
-                    <View style={[styles.card, { backgroundColor: isDark ? colors.inputBackground : '#fff' }]}>
+                    <Text style={[styles.sectionTitle, { color: colors.primary }]}>Messages</Text>
+                    <SettingCard>
                         <SettingRow
                             title="Show Notifications"
-                            subtitle="Show notifications for incoming messages"
+                            subtitle="Get alerts for new messages"
+                            icon="bell"
+                            isSwitch
                             switchValue={user?.notifications_enabled ?? true}
                             onSwitchChange={(v: boolean) => handleToggle('notifications_enabled', v)}
+                            color="#4FACFE"
                         />
                         <SettingRow
                             title="Sound"
                             subtitle="Play sounds for incoming messages"
+                            icon="volume-up"
+                            isSwitch
                             switchValue={user?.notifications_sound ?? true}
                             onSwitchChange={(v: boolean) => handleToggle('notifications_sound', v)}
+                            color="#6C63FF"
+                            isLast
                         />
-                    </View>
+                    </SettingCard>
                 </View>
 
                 <View style={styles.section}>
-                    <Text style={[styles.sectionTitle, { color: colors.primary }]}>Group Notifications</Text>
-                    <View style={[styles.card, { backgroundColor: isDark ? colors.inputBackground : '#fff' }]}>
+                    <Text style={[styles.sectionTitle, { color: colors.primary }]}>Groups</Text>
+                    <SettingCard>
                         <SettingRow
                             title="Show Notifications"
-                            subtitle="Show notifications for group messages"
+                            subtitle="Get alerts for group messages"
+                            icon="users"
+                            isSwitch
                             switchValue={user?.notifications_groups_enabled ?? true}
                             onSwitchChange={(v: boolean) => handleToggle('notifications_groups_enabled', v)}
+                            color="#38F9D7"
+                            isLast
                         />
-                    </View>
+                    </SettingCard>
                 </View>
+
+                <Text style={[styles.hint, { color: colors.textSecondary }]}>
+                    System-wide notification settings can be managed in your device settings.
+                </Text>
             </ScrollView>
         </ScreenWrapper>
     );
@@ -87,11 +91,9 @@ const styles = StyleSheet.create({
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
-        paddingHorizontal: 15,
-        paddingTop: 20,
-        paddingBottom: 12,
-        borderBottomWidth: StyleSheet.hairlineWidth,
+        paddingHorizontal: 20,
+        paddingBottom: 15,
+        borderBottomWidth: 0.5,
     },
     backButton: {
         padding: 5,
@@ -99,48 +101,33 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontSize: 18,
-        fontWeight: 'bold',
-        marginVertical: 10,
+        fontWeight: '800',
+        flex: 1,
+        textAlign: 'center',
     },
     scrollContent: {
-        padding: 16,
+        padding: 20,
     },
     section: {
-        marginBottom: 24,
+        marginBottom: 30,
     },
     sectionTitle: {
         fontSize: 14,
-        fontWeight: 'bold',
-        marginBottom: 8,
+        fontWeight: '800',
+        marginBottom: 16,
         marginLeft: 4,
         textTransform: 'uppercase',
+        letterSpacing: 1.5,
+        opacity: 0.8,
     },
-    card: {
-        borderRadius: 16,
-        overflow: 'hidden',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
-        elevation: 2,
-    },
-    row: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 16,
-        paddingHorizontal: 16,
-        borderBottomWidth: StyleSheet.hairlineWidth,
-    },
-    rowMain: {
-        flex: 1,
-    },
-    rowTitle: {
-        fontSize: 16,
+    hint: {
+        fontSize: 12,
+        marginTop: 12,
+        marginLeft: 8,
+        lineHeight: 16,
         fontWeight: '500',
-    },
-    rowValue: {
-        fontSize: 14,
-        color: 'gray',
-        marginTop: 2,
+        opacity: 0.5,
+        textAlign: 'center',
+        paddingHorizontal: 40,
     }
 });

@@ -149,7 +149,12 @@ export const MessageItemComponent = ({ item, onLongPress, onSwipeReply, onSwipeF
                                 {item.file && (
                                     <View style={{ marginBottom: item.text ? 5 : 0 }}>
                                         {item.file_type?.startsWith('image/') ? (
-                                            <TouchableOpacity onPress={handleMediaPress}>
+                                            <TouchableOpacity
+                                                onPress={handleMediaPress}
+                                                onLongPress={() => onLongPress(item)}
+                                                delayLongPress={200}
+                                                activeOpacity={0.9}
+                                            >
                                                 {getImageSource() && (
                                                     <Image
                                                         source={getImageSource()!}
@@ -160,7 +165,13 @@ export const MessageItemComponent = ({ item, onLongPress, onSwipeReply, onSwipeF
                                                 )}
                                             </TouchableOpacity>
                                         ) : item.file_type?.startsWith('video/') ? (
-                                            <TouchableOpacity onPress={handleMediaPress} style={styles.videoPreview}>
+                                            <TouchableOpacity
+                                                onPress={handleMediaPress}
+                                                style={styles.videoPreview}
+                                                onLongPress={() => onLongPress(item)}
+                                                delayLongPress={200}
+                                                activeOpacity={0.9}
+                                            >
                                                 <View style={styles.videoThumbnail}>
                                                     <MaterialCommunityIcons name="play-circle" size={48} color="white" />
                                                 </View>
@@ -241,7 +252,12 @@ export const MessageItemComponent = ({ item, onLongPress, onSwipeReply, onSwipeF
                                 {item.file && (
                                     <View style={{ marginBottom: item.text ? 5 : 0 }}>
                                         {item.file_type?.startsWith('image/') ? (
-                                            <TouchableOpacity onPress={handleMediaPress}>
+                                            <TouchableOpacity
+                                                onPress={handleMediaPress}
+                                                onLongPress={() => onLongPress(item)}
+                                                delayLongPress={200}
+                                                activeOpacity={0.9}
+                                            >
                                                 {getImageSource() && (
                                                     <Image
                                                         source={getImageSource()!}
@@ -252,7 +268,13 @@ export const MessageItemComponent = ({ item, onLongPress, onSwipeReply, onSwipeF
                                                 )}
                                             </TouchableOpacity>
                                         ) : item.file_type?.startsWith('video/') ? (
-                                            <TouchableOpacity onPress={handleMediaPress} style={styles.videoPreview}>
+                                            <TouchableOpacity
+                                                onPress={handleMediaPress}
+                                                style={styles.videoPreview}
+                                                onLongPress={() => onLongPress(item)}
+                                                delayLongPress={200}
+                                                activeOpacity={0.9}
+                                            >
                                                 <View style={styles.videoThumbnail}>
                                                     <MaterialCommunityIcons name="play-circle" size={48} color="white" />
                                                 </View>

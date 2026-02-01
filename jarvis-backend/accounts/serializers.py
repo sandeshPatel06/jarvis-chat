@@ -8,6 +8,7 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = (
             'id', 'username', 'email', 'phone_number', 'profile_picture', 'bio',
+            'last_seen', 'is_online',
             'privacy_last_seen', 'privacy_profile_photo', 'privacy_read_receipts',
             'privacy_disappearing_messages_timer',
             'notifications_enabled', 'notifications_sound', 'notifications_groups_enabled',

@@ -6,22 +6,40 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View, BackHandler } from 'react-native';
 import { RTCView } from 'react-native-webrtc';
+import { useRef } from 'react';
 
 export default function CallScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
     const router = useRouter();
     const { colors } = useAppTheme();
-    const { callState, endCall, chats } = useStore();
-    const { localStream, remoteStream, isCalling } = callState;
+
+    // Granular selectors to isolate re-renders
+    const localStream = useStore(useCallback((state: any) => state.callState.localStream, []));
+    const remoteStream = useStore(useCallback((state: any) => state.callState.remoteStream, []));
+    const isCalling = useStore(useCallback((state: any) => state.callState.isCalling, []));
+    const endCall = useStore(useCallback((state: any) => state.endCall, []));
+    const setIsMinimized = useStore(useCallback((state: any) => state.setIsMinimized, []));
+    const chat = useStore(useCallback((state: any) => state.chats.find((c: any) => c.id === id) || null, [id]));
+    const callHasStarted = useRef(isCalling);
 
     const [isMuted, setIsMuted] = useState(false);
     const [isVideoEnabled, setIsVideoEnabled] = useState(true);
     const [isFrontCamera, setIsFrontCamera] = useState(true);
     const [isSpeakerOn, setIsSpeakerOn] = useState(true);
+    const [isEnding, setIsEnding] = useState(false);
 
-    const chat = chats.find(c => c.id === id);
+    useEffect(() => {
+        setIsMinimized(false);
+    }, [setIsMinimized]);
+
+    useEffect(() => {
+        if (isCalling) {
+            setIsEnding(false);
+            callHasStarted.current = true;
+        }
+    }, [isCalling]);
 
     useEffect(() => {
         console.log(`[CallScreen] 📺 Stream check: Local=${localStream?.toURL()}, Remote=${remoteStream?.toURL()}`);
@@ -35,46 +53,79 @@ export default function CallScreen() {
     }, [remoteStream, localStream]);
 
     useEffect(() => {
-        if (!isCalling) {
-            // Use replace to go to home instead of back to avoid navigation errors
-            router.replace('/(tabs)');
+        const backAction = () => {
+            if (isCalling) {
+                setIsMinimized(true);
+                router.back();
+                return true;
+            }
+            return false;
+        };
+
+        const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+
+        return () => backHandler.remove();
+    }, [isCalling, router, setIsMinimized]);
+
+    useEffect(() => {
+        if (!isCalling && callHasStarted.current && !isEnding) {
+            setIsEnding(true);
+            const timer = setTimeout(() => {
+                router.replace('/(tabs)');
+            }, 1500);
+            return () => clearTimeout(timer);
         }
     }, [isCalling]);
 
-    const handleEndCall = () => {
+    const handleEndCall = useCallback(() => {
+        setIsEnding(true);
         endCall();
-        router.replace('/(tabs)');
-    };
+        setTimeout(() => {
+            router.replace('/(tabs)');
+        }, 1000);
+    }, [endCall, router]);
 
-    const toggleMute = () => {
-        const newMuted = !isMuted;
-        setIsMuted(newMuted);
-        webrtcService.toggleAudio(!newMuted);
-    };
+    const toggleMute = useCallback(() => {
+        setIsMuted(prev => {
+            const next = !prev;
+            webrtcService.toggleAudio(!next);
+            return next;
+        });
+    }, []);
 
-    const toggleVideo = () => {
-        const newVideo = !isVideoEnabled;
-        setIsVideoEnabled(newVideo);
-        webrtcService.toggleVideo(newVideo);
-    };
+    const toggleVideo = useCallback(() => {
+        setIsVideoEnabled(prev => {
+            const next = !prev;
+            webrtcService.toggleVideo(next);
+            return next;
+        });
+    }, []);
 
-    const switchCamera = () => {
+    const switchCamera = useCallback(() => {
         webrtcService.switchCamera();
-        setIsFrontCamera(!isFrontCamera);
-    };
+        setIsFrontCamera(prev => !prev);
+    }, []);
 
-    const toggleSpeaker = () => {
-        const nextState = !isSpeakerOn;
-        setIsSpeakerOn(nextState);
-        webrtcService.toggleSpeaker(nextState);
-    };
+    const toggleSpeaker = useCallback(() => {
+        setIsSpeakerOn(prev => {
+            const next = !prev;
+            webrtcService.toggleSpeaker(next);
+            return next;
+        });
+    }, []);
 
     return (
-        <ScreenWrapper style={[styles.container, { backgroundColor: '#000' }]} edges={['top', 'left', 'right', 'bottom']}>
+        <ScreenWrapper style={[styles.container, { backgroundColor: '#000' }]} edges={['top', 'left', 'right', 'bottom']} withExtraTopPadding={false}>
             {/* Remote Stream (Full Screen) */}
             {/* Remote Stream (Full Screen) */}
             <View style={styles.remoteStreamContainer}>
-                {remoteStream ? (
+                {isEnding ? (
+                    <View style={styles.connectingContainer}>
+                        <FontAwesome name="phone-square" size={60} color="red" style={{ marginBottom: 20 }} />
+                        <Text style={[styles.connectingText, { color: 'red' }]}>Call Ended</Text>
+                        <Text style={styles.remoteName}>{chat?.name || 'Unknown'}</Text>
+                    </View>
+                ) : remoteStream ? (
                     <RTCView
                         key={remoteStream.toURL()} // Force re-render on stream change
                         streamURL={remoteStream.toURL()}
@@ -131,7 +182,7 @@ export default function CallScreen() {
                 <TouchableOpacity
                     style={[styles.controlButton, { backgroundColor: 'rgba(255,255,255,0.2)' }]}
                     onPress={() => {
-                        useStore.getState().setIsMinimized(true);
+                        setIsMinimized(true);
                         router.back();
                     }}
                 >

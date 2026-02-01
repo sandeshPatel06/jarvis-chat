@@ -1,10 +1,13 @@
+import React, { useCallback } from 'react';
+import { ScrollView, StyleSheet, TouchableOpacity, View, Text } from 'react-native';
+import { useRouter } from 'expo-router';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+
 import { ScreenWrapper } from '@/components/ScreenWrapper';
-import { Text, View } from '@/components/Themed';
 import { useStore } from '@/store';
 import { useAppTheme } from '@/hooks/useAppTheme';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { ScrollView, StyleSheet, TouchableOpacity, Switch } from 'react-native';
-import { useRouter } from 'expo-router';
+import SettingRow from '@/components/settings/SettingRow';
+import SettingCard from '@/components/settings/SettingCard';
 
 export default function AccountSettingsScreen() {
     const { colors, isDark } = useAppTheme();
@@ -14,19 +17,19 @@ export default function AccountSettingsScreen() {
     const showAlert = useStore((state) => state.showAlert);
     const router = useRouter();
 
-    const handleToggleSecurity = async (value: boolean) => {
+    const handleToggleSecurity = useCallback(async (value: boolean) => {
         try {
             await updateSettings({ security_notifications_enabled: value });
         } catch (e) { }
-    };
+    }, [updateSettings]);
 
-    const handleToggleTwoStep = async (value: boolean) => {
+    const handleToggleTwoStep = useCallback(async (value: boolean) => {
         try {
             await updateSettings({ two_step_verification_enabled: value });
         } catch (e) { }
-    };
+    }, [updateSettings]);
 
-    const handleDeleteAccount = () => {
+    const handleDeleteAccount = useCallback(() => {
         showAlert(
             'Delete Account',
             'Are you sure you want to delete your account? This action is permanent and cannot be undone.',
@@ -44,74 +47,130 @@ export default function AccountSettingsScreen() {
                 }
             ]
         );
-    };
-
-    const SettingRow = ({ title, icon, onPress, isSwitch, switchValue, onSwitchChange }: any) => (
-        <TouchableOpacity
-            style={[styles.row, { borderBottomColor: colors.itemSeparator }]}
-            onPress={onPress}
-            disabled={isSwitch}
-        >
-            <View style={styles.iconContainer}>
-                <FontAwesome name={icon} size={18} color={colors.primary} />
-            </View>
-            <Text style={[styles.rowTitle, { color: colors.text }]}>{title}</Text>
-            {isSwitch ? (
-                <Switch
-                    value={switchValue}
-                    onValueChange={onSwitchChange}
-                    trackColor={{ false: '#767577', true: colors.primary }}
-                    thumbColor={'white'}
-                />
-            ) : (
-                <FontAwesome name="chevron-right" size={14} color={colors.tabIconDefault} />
-            )}
-        </TouchableOpacity>
-    );
+    }, [showAlert, deleteAccount, router]);
 
     return (
         <ScreenWrapper style={styles.container} edges={['top', 'left', 'right', 'bottom']}>
             <View style={[styles.header, { borderBottomColor: colors.itemSeparator }]}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <FontAwesome name="user" size={18} color={colors.primary} />
+                    <FontAwesome name="chevron-left" size={20} color={colors.primary} />
                 </TouchableOpacity>
                 <Text style={[styles.headerTitle, { color: colors.text }]}>Account</Text>
-                {/* <View style={{ width: 40 }} /> */}
+                <View style={{ width: 40 }} />
             </View>
 
-            <ScrollView contentContainerStyle={styles.scrollContent}>
-                <View style={[styles.card, { backgroundColor: isDark ? colors.inputBackground : '#fff' }]}>
-                    <SettingRow
-                        title="Security notifications"
-                        icon="shield"
-                        isSwitch
-                        switchValue={user?.security_notifications_enabled ?? false}
-                        onSwitchChange={handleToggleSecurity}
-                    />
-                    <SettingRow
-                        title="Two-step verification"
-                        icon="lock"
-                        isSwitch
-                        switchValue={user?.two_step_verification_enabled ?? false}
-                        onSwitchChange={handleToggleTwoStep}
-                    />
-                    <SettingRow title="Change number" icon="phone" onPress={() => router.push('/settings/profile')} />
-                    <SettingRow title="Request account info" icon="file-text-o" onPress={() => showAlert('Action Success', 'Your account info report will be ready in 3 days.')} />
-                    <SettingRow title="Delete my account" icon="trash-o" onPress={handleDeleteAccount} />
+            <ScrollView
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+            >
+                <View style={styles.section}>
+                    <SettingCard>
+                        <SettingRow
+                            title="Security notifications"
+                            icon="shield"
+                            isSwitch
+                            switchValue={user?.security_notifications_enabled ?? false}
+                            onSwitchChange={handleToggleSecurity}
+                            color="#4FACFE"
+                        />
+                        <SettingRow
+                            title="Two-step verification"
+                            icon="lock"
+                            isSwitch
+                            switchValue={user?.two_step_verification_enabled ?? false}
+                            onSwitchChange={handleToggleTwoStep}
+                            color="#6C63FF"
+                        />
+                        <SettingRow
+                            title="Change number"
+                            icon="phone"
+                            onPress={() => { }}
+                            color="#FA709A"
+                        />
+                        <SettingRow
+                            title="Request account info"
+                            icon="file-text-o"
+                            onPress={() => { }}
+                            color="#FEE140"
+                            isLast
+                        />
+                    </SettingCard>
                 </View>
+
+                <View style={styles.section}>
+                    <SettingCard>
+                        <SettingRow
+                            title="Delete my account"
+                            icon="trash-o"
+                            onPress={handleDeleteAccount}
+                            color={colors.error}
+                            isLast
+                        />
+                    </SettingCard>
+                </View>
+
+                <Text style={[styles.hint, { color: colors.textSecondary }]}>
+                    Your account security is our top priority. Enable two-step verification for maximum protection.
+                </Text>
             </ScrollView>
         </ScreenWrapper>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1 ,},
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 15, paddingTop: 20, paddingBottom: 12, borderBottomWidth: StyleSheet.hairlineWidth },
-    backButton: { padding: 5, width: 40 },
-    headerTitle: { fontSize: 18, fontWeight: 'bold' , marginVertical: 10 },
-    scrollContent: { padding: 16 },
-    card: { borderRadius: 16, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2 },
-    row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 16, borderBottomWidth: StyleSheet.hairlineWidth },
-    iconContainer: { width: 32, alignItems: 'center', marginRight: 12 },
-    rowTitle: { flex: 1, fontSize: 16, fontWeight: '500' }
+    container: {
+        flex: 1,
+    },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingBottom: 15,
+        borderBottomWidth: 0.5,
+    },
+    backButton: {
+        padding: 5,
+        width: 40,
+    },
+    headerTitle: {
+        fontSize: 18,
+        fontWeight: '800',
+        flex: 1,
+        textAlign: 'center',
+    },
+    scrollContent: {
+        paddingVertical: 20,
+        paddingHorizontal: 20,
+    },
+    section: {
+        marginBottom: 20,
+    },
+    row: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+    },
+    iconBox: {
+        width: 38,
+        height: 38,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 14,
+    },
+    rowTitle: {
+        flex: 1,
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    hint: {
+        fontSize: 13,
+        textAlign: 'center',
+        marginTop: 24,
+        paddingHorizontal: 30,
+        lineHeight: 18,
+        opacity: 0.6,
+        fontWeight: '500',
+    }
 });

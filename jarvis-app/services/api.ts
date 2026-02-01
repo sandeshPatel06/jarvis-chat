@@ -1,3 +1,6 @@
+import { Platform } from 'react-native';
+import { getInfoAsync } from 'expo-file-system/legacy';
+
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 if (!BACKEND_URL) {
@@ -171,6 +174,28 @@ export const api = {
                 log('Get blocked users error', error);
                 return [];
             }
+    },
+    },
+    contacts: {
+        getContacts: async (token: string) => {
+            const url = `${API_URL}/contacts/`;
+            try {
+                log(`GET ${url}`);
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Token ${token}`,
+                        'Content-Type': 'application/json',
+                    },
+                });
+                const json = await response.json();
+                log('Get contacts response', { status: response.status, count: json.length });
+                if (!response.ok) throw new Error(JSON.stringify(json) || 'Failed to fetch contacts');
+                return json;
+            } catch (error) {
+                log('Get contacts error', error);
+                return [];
+            }
         },
     },
     chat: {
@@ -319,6 +344,19 @@ export const api = {
                 throw error;
             }
         },
+
+        // Helper function to normalize file URIs for platform compatibility
+        normalizeFileUri: (uri: string): string => {
+            if (Platform.OS === 'android') {
+                // Android may use content:// URIs, keep as-is
+                return uri;
+            } else if (Platform.OS === 'ios') {
+                // iOS uses file:// URIs
+                return uri.startsWith('file://') ? uri : `file://${uri}`;
+            }
+            return uri;
+        },
+
         uploadFile: async (token: string, conversationId: string | null, recipientUsername: string | null, file: any, text: string = '', replyToId?: string) => {
             const url = `${API_URL}/chat/messages/upload/`;
             const formData = new FormData();
@@ -329,9 +367,30 @@ export const api = {
             if (replyToId) formData.append('reply_to_id', replyToId);
 
             if (file) {
+                // Validate file before upload
+                try {
+                    const fileInfo = await getInfoAsync(file.uri);
+
+                    if (!fileInfo.exists) {
+                        throw new Error('File not found. It may have been moved or deleted.');
+                    }
+
+                    log('File validation passed', {
+                        exists: fileInfo.exists,
+                        size: fileInfo.size,
+                        uri: file.uri
+                    });
+                } catch (validationError: any) {
+                    log('File validation failed', validationError);
+                    throw new Error(validationError.message || 'Unable to access file');
+                }
+
+                // Normalize URI for platform compatibility
+                const normalizedUri = api.chat.normalizeFileUri(file.uri);
+
                 // Expo Document Picker result structure
                 formData.append('file', {
-                    uri: file.uri,
+                    uri: normalizedUri,
                     name: file.name || 'file',
                     type: file.mimeType || 'application/octet-stream'
                 } as any);
@@ -344,7 +403,13 @@ export const api = {
                     formData.append('file_name', file.name);
                 }
 
-                log('File being uploaded', { name: file.name, type: file.mimeType, uri: file.uri });
+                log('File being uploaded', {
+                    name: file.name,
+                    type: file.mimeType,
+                    originalUri: file.uri,
+                    normalizedUri: normalizedUri,
+                    platform: Platform.OS
+                });
             }
 
             try {
@@ -360,10 +425,23 @@ export const api = {
 
                 const json = await response.json();
                 log('Upload response', { status: response.status, json });
-                if (!response.ok) throw new Error(JSON.stringify(json) || 'Upload failed');
+
+                if (!response.ok) {
+                    const errorMessage = json.detail || json.error || JSON.stringify(json) || 'Upload failed';
+                    throw new Error(errorMessage);
+                }
+
                 return json;
-            } catch (error) {
+            } catch (error: any) {
                 log('Upload error', error);
+
+                // Provide more specific error messages
+                if (error.message?.includes('Network request failed')) {
+                    throw new Error('Network error. Please check your internet connection.');
+                } else if (error.message?.includes('File not found')) {
+                    throw new Error('File not found. Please try selecting the file again.');
+                }
+
                 throw error;
             }
         },

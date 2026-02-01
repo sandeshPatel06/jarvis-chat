@@ -1,11 +1,15 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Modal, View, StyleSheet, TouchableOpacity, Image, Dimensions, StatusBar, Text, Linking } from 'react-native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { WebView } from 'react-native-webview';
 import * as Sharing from 'expo-sharing';
 import * as ScreenOrientation from 'expo-screen-orientation';
+import * as MediaLibrary from 'expo-media-library';
+import * as FileSystem from 'expo-file-system';
 import { useAppTheme } from '@/hooks/useAppTheme';
+import { useStore } from '@/store';
+
 
 interface MediaViewerProps {
     visible: boolean;
@@ -19,6 +23,7 @@ const { width, height } = Dimensions.get('window');
 
 export const MediaViewer: React.FC<MediaViewerProps> = ({ visible, mediaUri, mediaType, fileName, onClose }) => {
     const { colors } = useAppTheme();
+    const showAlert = useStore(useCallback((state: any) => state.showAlert, []));
     const player = useVideoPlayer(mediaUri || '', (p) => {
         p.loop = false;
         if (visible && mediaType === 'video') {
@@ -66,6 +71,45 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({ visible, mediaUri, med
         }
     };
 
+    const handleSave = async () => {
+        if (!mediaUri) return;
+
+        try {
+            // Request permission
+            const { status } = await MediaLibrary.requestPermissionsAsync();
+            if (status !== 'granted') {
+                showAlert('Permission Denied', 'We need permission to save media to your gallery');
+                return;
+            }
+
+            // Determine file extension
+            let ext = '.jpg';
+            if (mediaType === 'video') ext = '.mp4';
+            else if (mediaType === 'pdf') ext = '.pdf';
+
+            // Download and save the media
+            let uriToSave = '';
+
+            if (mediaUri.startsWith('file://')) {
+                uriToSave = mediaUri;
+            } else {
+                const fileUri = FileSystem.documentDirectory + 'temp_media_' + Date.now() + ext;
+                const downloadResult = await FileSystem.downloadAsync(mediaUri, fileUri);
+
+                if (downloadResult.status !== 200) {
+                    throw new Error('Download failed with status: ' + downloadResult.status);
+                }
+                uriToSave = downloadResult.uri;
+            }
+
+            await MediaLibrary.saveToLibraryAsync(uriToSave);
+            showAlert('Success', 'Media saved to gallery!');
+        } catch (error) {
+            console.error('Failed to save to gallery:', error);
+            showAlert('Error', 'Failed to save media to gallery');
+        }
+    };
+
     if (!mediaUri || !mediaType) return null;
 
     return (
@@ -87,6 +131,9 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({ visible, mediaUri, med
                         </Text>
                     )}
                     <View style={styles.headerButtons}>
+                        <TouchableOpacity style={styles.headerButton} onPress={handleSave}>
+                            <MaterialCommunityIcons name="download" size={24} color="white" />
+                        </TouchableOpacity>
                         <TouchableOpacity style={styles.headerButton} onPress={handleShare}>
                             <MaterialCommunityIcons name="share-variant" size={24} color="white" />
                         </TouchableOpacity>

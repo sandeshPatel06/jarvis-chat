@@ -8,19 +8,24 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import { FlatList, Image, StyleSheet, TouchableOpacity } from 'react-native';
+import CallLogItem from '@/components/calls/CallLogItem';
+import { useCallback } from 'react';
 
 export default function CallsScreen() {
   const { colors, isDark } = useAppTheme();
   const router = useRouter();
-  const { calls, fetchCalls, startCall, user } = useStore();
+  const { calls, fetchCalls, startCall, user } = useStore(useCallback((state) => ({
+    calls: state.calls,
+    fetchCalls: state.fetchCalls,
+    startCall: state.startCall,
+    user: state.user
+  }), []));
 
   useEffect(() => {
     fetchCalls();
   }, []);
 
-  const handleCall = (username: string, isVideo: boolean = false) => {
-    // For now simple redial. Ideally we resolve Chat ID from username or store it. 
-    // Simplified: assuming we can find a chat with this name.
+  const handleCall = useCallback((username: string, isVideo: boolean = false) => {
     const chat = useStore.getState().chats.find(c => c.name === username);
     if (chat) {
       startCall(chat.id, isVideo);
@@ -28,45 +33,21 @@ export default function CallsScreen() {
     } else {
       alert('Could not redial. Chat not found.');
     }
-  };
+  }, [startCall, router]);
 
-  const renderItem = ({ item }: { item: any }) => {
-    // Determine if incoming or outgoing
-    const isOutgoing = item.caller.username === user?.username;
-    const otherParty = isOutgoing ? item.receiver : item.caller;
-    const isMissed = item.status === 'missed';
-
+  const renderItem = useCallback(({ item }: { item: any }) => {
     return (
-      <TouchableOpacity style={styles.callItem} onPress={() => handleCall(otherParty.username, item.is_video)}>
-        <Image
-          source={getMediaUrl(otherParty.profile_picture) ? { uri: getMediaUrl(otherParty.profile_picture)! } : require('@/assets/images/default-avatar.png')}
-          style={styles.avatar}
-        />
-        <View style={styles.info}>
-          <Text style={[styles.name, { color: colors.text }]}>{otherParty.username}</Text>
-          <View style={styles.detailsRow}>
-            <MaterialIcons
-              name={isOutgoing ? "call-made" : (isMissed ? "call-missed" : "call-received")}
-              size={14}
-              color={isMissed ? '#FF3B30' : (isOutgoing ? '#4CD964' : colors.primary)}
-            />
-            <Text style={[styles.time, { color: 'gray' }]}>
-              {new Date(item.started_at).toLocaleString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}
-            </Text>
-          </View>
-        </View>
-        <TouchableOpacity onPress={() => handleCall(otherParty.username, item.is_video)}>
-          <FontAwesome name={item.is_video ? "video-camera" : "phone"} size={20} color={colors.primary} />
-        </TouchableOpacity>
-      </TouchableOpacity>
+      <CallLogItem
+        item={item}
+        user={user}
+        colors={colors}
+        onPress={handleCall}
+      />
     );
-  };
+  }, [user, colors, handleCall]);
 
   return (
-    <ScreenWrapper style={styles.container}>
-      <View style={[styles.header, { borderBottomColor: colors.itemSeparator }]}>
-        {/* <Text style={[styles.headerTitle, { color: colors.text }]}>Calls</Text> */}
-      </View>
+    <ScreenWrapper style={styles.container} edges={['left', 'right']} withExtraTopPadding={false}>
 
       {calls.length === 0 ? (
         <View style={styles.emptyContent}>
@@ -83,6 +64,14 @@ export default function CallsScreen() {
           keyExtractor={(item) => item.id.toString()}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          getItemLayout={(_, index) => ({
+            length: 74, // Approximate height of each item (50 avatar + 24 padding)
+            offset: 74 * index,
+            index,
+          })}
+          initialNumToRender={10}
+          maxToRenderPerBatch={10}
+          windowSize={5}
         />
       )}
     </ScreenWrapper>
@@ -132,7 +121,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   listContent: {
-    paddingBottom: 20,
+    paddingBottom: 120, // Enough room for floating tab bar
   },
   emptyContent: {
     flex: 1,

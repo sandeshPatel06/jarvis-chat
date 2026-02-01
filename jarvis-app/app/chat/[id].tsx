@@ -4,7 +4,7 @@ import { useStore } from '@/store';
 import { Message } from '@/types';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import {
     FlatList,
     Keyboard,
@@ -20,8 +20,11 @@ import {
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenWrapper } from '@/components/ScreenWrapper';
-import { ChatHeader, ChatInput, MessageItem, ForwardMessageModal } from '@/components/chat';
+import { ChatHeader, ChatInput, MessageItem, ForwardMessageModal, MediaViewer } from '@/components/chat';
 import * as Clipboard from 'expo-clipboard';
+import * as MediaLibrary from 'expo-media-library';
+import * as FileSystem from 'expo-file-system';
+import { getMediaUrl } from '@/utils/media';
 
 export default function ChatDetailScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
@@ -29,21 +32,23 @@ export default function ChatDetailScreen() {
     const insets = useSafeAreaInsets();
     const { colors } = useAppTheme();
 
-    const chats = useStore((state) => state.chats);
-    const sendMessage = useStore((state) => state.sendMessage);
-    const fetchMessages = useStore((state) => state.fetchMessages);
-    const loadMoreMessages = useStore((state) => state.loadMoreMessages); // New
-    const connectWebSocket = useStore((state) => state.connectWebSocket);
-    const typingUsers = useStore((state) => state.typingUsers);
-    const sendTyping = useStore((state) => state.sendTyping);
+    const chat = useStore(useCallback((state: any) => state.chats.find((c: any) => c.id === id) || null, [id]));
+    const sendMessage = useStore(useCallback((state: any) => state.sendMessage, []));
+    const fetchMessages = useStore(useCallback((state: any) => state.fetchMessages, []));
+    const loadMoreMessages = useStore(useCallback((state: any) => state.loadMoreMessages, []));
+    const connectWebSocket = useStore(useCallback((state: any) => state.connectWebSocket, []));
+    const typingUser = useStore(useCallback((state: any) => id ? state.typingUsers[id] : null, [id]));
+    const sendTyping = useStore(useCallback((state: any) => state.sendTyping, []));
 
-    const markRead = useStore((state) => state.markRead);
-    const editMessage = useStore((state) => state.editMessage);
-    const deleteMessage = useStore((state) => state.deleteMessage);
-    const reactToMessage = useStore((state) => state.reactToMessage);
-    const deleteChat = useStore((state) => state.deleteChat);
-    const forwardMessage = useStore((state) => state.forwardMessage);
-    const showAlert = useStore((state) => state.showAlert);
+    const markRead = useStore(useCallback((state: any) => state.markRead, []));
+    const editMessage = useStore(useCallback((state: any) => state.editMessage, []));
+    const deleteMessage = useStore(useCallback((state: any) => state.deleteMessage, []));
+    const reactToMessage = useStore(useCallback((state: any) => state.reactToMessage, []));
+    const deleteChat = useStore(useCallback((state: any) => state.deleteChat, []));
+    const forwardMessage = useStore(useCallback((state: any) => state.forwardMessage, []));
+    const showAlert = useStore(useCallback((state: any) => state.showAlert, []));
+    const animationsEnabled = useStore(useCallback((state: any) => state.animationsEnabled, []));
+    const chats = useStore(useCallback((state: any) => state.chats, []));
 
     const [text, setText] = useState('');
     const [keyboardVisible, setKeyboardVisible] = useState(false);
@@ -79,8 +84,6 @@ export default function ChatDetailScreen() {
         };
     }, [id]);
 
-    const animationsEnabled = useStore((state) => state.animationsEnabled);
-
     useEffect(() => {
         const show = Keyboard.addListener('keyboardDidShow', () => {
             setKeyboardVisible(true);
@@ -101,17 +104,14 @@ export default function ChatDetailScreen() {
     }, [chats, animationsEnabled]);
 
     useEffect(() => {
-        const chat = chats.find((c) => c.id === id);
         if (chat?.messages) {
-            chat.messages.forEach((msg) => {
+            chat.messages.forEach((msg: any) => {
                 if (msg.sender === 'them' && !msg.isRead) {
                     markRead(chat.id, msg.id);
                 }
             });
         }
-    }, [chats, id]);
-
-    const chat = chats.find((c) => c.id === id);
+    }, [chat?.messages, markRead]);
 
     if (!chat) {
         return (
@@ -122,16 +122,18 @@ export default function ChatDetailScreen() {
     }
 
     /* -------------------- handlers -------------------- */
-    const handleTextChange = (value: string) => {
+    const handleTextChange = useCallback((value: string) => {
         setText(value);
+        if (!chat) return;
         const now = Date.now();
         if (value.length > 0 && now - lastTypingSent.current > 2000) {
             sendTyping(chat.id);
             lastTypingSent.current = now;
         }
-    };
+    }, [chat, sendTyping]);
 
-    const handleSend = () => {
+    const handleSend = useCallback(() => {
+        if (!chat) return;
         if (text.trim()) {
             if (editingMessageId) {
                 editMessage(chat.id, editingMessageId, text.trim());
@@ -142,22 +144,22 @@ export default function ChatDetailScreen() {
             }
             setText('');
         }
-    };
+    }, [chat, text, editingMessageId, replyingToMessage, editMessage, sendMessage]);
 
-    const handleLongPressMessage = (message: Message) => {
+    const handleLongPressMessage = useCallback((message: Message) => {
         setSelectedMessage(message);
         setModalVisible(true);
-    };
+    }, []);
 
-    const handleReact = (reaction: string) => {
-        if (selectedMessage) {
+    const handleReact = useCallback((reaction: string) => {
+        if (selectedMessage && chat) {
             reactToMessage(chat.id, selectedMessage.id, reaction);
             setModalVisible(false);
             setSelectedMessage(null);
             setShowEmojiPicker(false);
             setCustomEmoji('');
         }
-    };
+    }, [chat, selectedMessage, reactToMessage]);
 
     const handleOpenEmojiPicker = () => {
         setShowEmojiPicker(true);
@@ -232,7 +234,53 @@ export default function ChatDetailScreen() {
         }
     };
 
-    const handleDeleteChat = () => {
+    const handleSaveToGallery = async () => {
+        if (!selectedMessage || !selectedMessage.file) return;
+
+        try {
+            // Request permission
+            const { status } = await MediaLibrary.requestPermissionsAsync();
+            if (status !== 'granted') {
+                showAlert('Permission Denied', 'We need permission to save media to your gallery');
+                return;
+            }
+
+            // Resolve full URL
+            const fullUrl = getMediaUrl(selectedMessage.file);
+            if (!fullUrl) {
+                showAlert('Error', 'Invalid file URL');
+                return;
+            }
+
+            // Determine file extension
+            let ext = '.jpg';
+            if (selectedMessage.file_type?.startsWith('video')) ext = '.mp4';
+            else if (selectedMessage.file_type?.startsWith('audio')) ext = '.mp3';
+            else if (selectedMessage.file_type?.includes('pdf')) ext = '.pdf';
+
+            let uriToSave = '';
+
+            if (fullUrl.startsWith('file://')) {
+                uriToSave = fullUrl;
+            } else {
+                const fileUri = FileSystem.documentDirectory + 'temp_media_' + Date.now() + ext;
+                const downloadResult = await FileSystem.downloadAsync(fullUrl, fileUri);
+                if (downloadResult.status !== 200) throw new Error('Download status: ' + downloadResult.status);
+                uriToSave = downloadResult.uri;
+            }
+
+            await MediaLibrary.saveToLibraryAsync(uriToSave);
+            showAlert('Success', 'Media saved to gallery!');
+            setModalVisible(false);
+            setSelectedMessage(null);
+        } catch (error) {
+            console.error('Failed to save to gallery:', error);
+            showAlert('Error', 'Failed to save media to gallery');
+        }
+    };
+
+    const handleDeleteChat = useCallback(() => {
+        if (!chat) return;
         showAlert(
             "Delete Chat",
             "Are you sure you want to delete this conversation? This cannot be undone.",
@@ -248,7 +296,7 @@ export default function ChatDetailScreen() {
                 }
             ]
         );
-    };
+    }, [chat, showAlert, deleteChat, router]);
 
     const handleSwipeReply = (message: Message) => {
         setReplyingToMessage(message);
@@ -267,16 +315,16 @@ export default function ChatDetailScreen() {
         }
     };
 
-    const renderMessage = ({ item }: { item: Message }) => {
+    const renderMessage = useCallback(({ item }: { item: Message }) => {
         return <MessageItem item={item} onLongPress={handleLongPressMessage} onSwipeReply={handleSwipeReply} onSwipeForward={handleSwipeForward} />;
-    };
+    }, [handleLongPressMessage, handleSwipeReply, handleSwipeForward]);
 
-    const handleLoadMore = async () => {
-        if (loadingMore || chat.messages.length < 20) return;
+    const handleLoadMore = useCallback(async () => {
+        if (!chat || loadingMore || chat.messages.length < 20) return;
         setLoadingMore(true);
         await loadMoreMessages(chat.id);
         setLoadingMore(false);
-    };
+    }, [chat, loadingMore, loadMoreMessages]);
 
     const renderFooter = () => {
         if (!loadingMore) return null;
@@ -291,11 +339,12 @@ export default function ChatDetailScreen() {
     return (
         <ScreenWrapper
             style={styles.container}
-            edges={['top', 'left', 'right']}
+            edges={['top', 'left', 'right']} // Bottom handled by ChatInput
+            withExtraTopPadding={false}
         >
             <ChatHeader
                 chat={chat}
-                typingUser={typingUsers[chat.id] || null}
+                typingUser={typingUser}
                 onOptionsPress={() => setChatOptionsVisible(true)}
             />
 
@@ -308,7 +357,56 @@ export default function ChatDetailScreen() {
             >
                 <Pressable style={styles.modalOverlay} onPress={() => setChatOptionsVisible(false)}>
                     <View style={[styles.chatOptionsContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                        <TouchableOpacity onPress={handleDeleteChat} style={styles.menuOption}>
+                        <TouchableOpacity onPress={async () => {
+                            setChatOptionsVisible(false);
+                            const { exportChatAsEmail } = await import('@/utils/chatExport');
+                            await exportChatAsEmail(messages, chat.name);
+                        }} style={styles.menuOption}>
+                            <Text style={{ color: colors.text, fontSize: 16 }}>Export as Email</Text>
+                            <MaterialCommunityIcons name="email-outline" size={20} color={colors.text} />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={async () => {
+                            setChatOptionsVisible(false);
+                            try {
+                                const isAvailable = await import('expo-sms').then(m => m.isAvailableAsync());
+                                if (!isAvailable) {
+                                    Alert.alert('SMS Not Available', 'SMS is not available on this device');
+                                    return;
+                                }
+                                const SMS = await import('expo-sms');
+                                await SMS.sendSMSAsync([], `Hi! Let's chat on Jarvis.`);
+                            } catch (error) {
+                                console.error('SMS error:', error);
+                                Alert.alert('Error', 'Failed to open SMS');
+                            }
+                        }} style={styles.menuOption}>
+                            <Text style={{ color: colors.text, fontSize: 16 }}>Send SMS</Text>
+                            <MaterialCommunityIcons name="message-text-outline" size={20} color={colors.text} />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => {
+                            setChatOptionsVisible(false);
+                            import('react-native').then(({ Alert }) => {
+                                Alert.alert(
+                                    'Delete Chat',
+                                    'Are you sure you want to delete this chat?',
+                                    [
+                                        { text: 'Cancel', style: 'cancel' },
+                                        {
+                                            text: 'Delete',
+                                            style: 'destructive',
+                                            onPress: () => {
+                                                import('@/store').then(({ useStore }) => {
+                                                    useStore.getState().deleteChat(chat.id);
+                                                });
+                                                import('expo-router').then(({ useRouter }) => {
+                                                    useRouter().back();
+                                                });
+                                            },
+                                        },
+                                    ]
+                                );
+                            });
+                        }} style={styles.menuOption}>
                             <Text style={{ color: colors.error, fontSize: 16 }}>Delete Chat</Text>
                             <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.error} />
                         </TouchableOpacity>
@@ -372,6 +470,13 @@ export default function ChatDetailScreen() {
                                             <MaterialCommunityIcons name="content-copy" size={20} color={colors.text} />
                                         </TouchableOpacity>
 
+                                        {selectedMessage.file && (
+                                            <TouchableOpacity onPress={handleSaveToGallery} style={styles.menuOption}>
+                                                <Text style={{ color: colors.text, fontSize: 16 }}>Save to Gallery</Text>
+                                                <MaterialCommunityIcons name="download" size={20} color={colors.text} />
+                                            </TouchableOpacity>
+                                        )}
+
                                         {selectedMessage.sender === 'me' && (
                                             <>
                                                 <TouchableOpacity onPress={handleEditOption} style={styles.menuOption}>
@@ -398,21 +503,25 @@ export default function ChatDetailScreen() {
             <KeyboardAvoidingView
                 style={{ flex: 1 }}
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                keyboardVerticalOffset={Platform.OS === 'ios' ? 90 + insets.top : 0}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
             >
                 <FlatList
                     ref={flatListRef}
-                    data={chat.messages} // Messages are now stored Newest -> Oldest
+                    data={chat.messages}
                     keyExtractor={(item) => item.id.toString()}
                     renderItem={renderMessage}
-                    inverted={true} // Inverted list: Bottom is Index 0 (Newest)
+                    inverted={true}
                     style={{ flex: 1 }}
                     contentContainerStyle={styles.listContent}
                     keyboardDismissMode="interactive"
                     keyboardShouldPersistTaps="handled"
                     onEndReached={handleLoadMore}
                     onEndReachedThreshold={0.5}
-                    ListFooterComponent={renderFooter} // Appears at TOP of inverted list
+                    ListFooterComponent={renderFooter}
+                    initialNumToRender={15}
+                    maxToRenderPerBatch={10}
+                    windowSize={10}
+                    removeClippedSubviews={Platform.OS === 'android'}
                 />
 
                 <ChatInput
@@ -434,7 +543,7 @@ export default function ChatDetailScreen() {
                 visible={forwardModalVisible}
                 onClose={() => setForwardModalVisible(false)}
                 message={messageToForward}
-                chats={chats.filter(c => c.id !== chat.id)}
+                chats={chats.filter((c: any) => c.id !== chat.id)}
                 onForward={handleForwardSubmit}
             />
         </ScreenWrapper>

@@ -56,6 +56,8 @@ interface CallState {
     activeChatId: string | null;
     bufferedCandidates: any[];
     isMinimized: boolean;
+    isVideo?: boolean;
+    isRequestingPermissions: boolean;
 }
 
 
@@ -114,6 +116,7 @@ interface AppState {
     endCall: () => void;
     acceptCall: () => Promise<void>;
     handleSignalingMessage: (message: any) => Promise<void>;
+    setIsMinimized: (isMinimized: boolean) => void;
 
     // Blocking
     blockedUsers: number[];
@@ -224,12 +227,13 @@ export const useStore = create<AppState>()(
                     activeChatId: null,
                     bufferedCandidates: [],
                     isMinimized: false,
+                    isRequestingPermissions: false,
                 },
 
                 startCall: async (chatId, isVideo = true) => {
                     // Set calling state immediately for responsive UI
                     set((state) => ({
-                        callState: { ...state.callState, isCalling: true, activeChatId: chatId, isMinimized: false, bufferedCandidates: [] }
+                        callState: { ...state.callState, isCalling: true, activeChatId: chatId, isMinimized: false, bufferedCandidates: [], isVideo, isRequestingPermissions: true }
                     }));
 
                     try {
@@ -237,9 +241,13 @@ export const useStore = create<AppState>()(
                         const audioStatus = await Audio.requestRecordingPermissionsAsync();
                         const cameraStatus = await ImagePicker.requestCameraPermissionsAsync();
 
+                        set((state) => ({
+                            callState: { ...state.callState, isRequestingPermissions: false }
+                        }));
+
                         if (audioStatus.status !== 'granted' || (isVideo && cameraStatus.status !== 'granted')) {
                             get().showAlert('Permission Required', 'Camera and Microphone permissions are needed for calls.');
-                            get().endCall(); // Revert state
+                            get().endCall();
                             return;
                         }
 
@@ -345,7 +353,7 @@ export const useStore = create<AppState>()(
                             api.chat.logCall(token, {
                                 receiver_username: chat.name, // Assuming chat name is username for 1-1
                                 status: 'completed',
-                                is_video: true
+                                is_video: callState.isVideo || false
                             }).then(() => get().fetchCalls());
                         }
                     }
@@ -360,7 +368,8 @@ export const useStore = create<AppState>()(
                             localStream: null,
                             activeChatId: null,
                             bufferedCandidates: [],
-                            isMinimized: false
+                            isMinimized: false,
+                            isRequestingPermissions: false,
                         }
                     }));
                 },
@@ -369,20 +378,21 @@ export const useStore = create<AppState>()(
                     const { incomingCall } = get().callState;
                     if (!incomingCall) return;
 
-                    stopRingtone(); // Stop incoming call ring
                     try {
-                        set((state) => ({
-                            callState: { ...state.callState, isCalling: true, activeChatId: incomingCall.chatId, incomingCall: null, isMinimized: false, bufferedCandidates: [] }
-                        }));
-
                         // Request permissions for answering too
+                        set((state) => ({ callState: { ...state.callState, isRequestingPermissions: true } }));
                         const audioStatus = await Audio.requestRecordingPermissionsAsync();
                         const cameraStatus = await ImagePicker.requestCameraPermissionsAsync();
+                        set((state) => ({ callState: { ...state.callState, isRequestingPermissions: false } }));
 
                         if (audioStatus.status !== 'granted' || cameraStatus.status !== 'granted') {
                             get().showAlert('Permission Required', 'Permissions needed to answer call.');
                             return;
                         }
+
+                        set((state) => ({
+                            callState: { ...state.callState, isCalling: true, activeChatId: incomingCall.chatId, incomingCall: null, isMinimized: false, bufferedCandidates: [], isVideo: incomingCall.isVideo }
+                        }));
 
                         // Activate KeepAwake for calls
                         KeepAwake.activateKeepAwakeAsync();
@@ -576,7 +586,7 @@ export const useStore = create<AppState>()(
                             return;
                         }
 
-                        get().showToast('info', 'Incoming Call', 'Receiving WebRTC Offer');
+                        console.log('[Signaling] Incoming Call: Receiving WebRTC Offer');
                         playRingtone(true); // Play incoming ringtone
                         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); // Subtle buzz for incoming
 
@@ -587,7 +597,8 @@ export const useStore = create<AppState>()(
                                     chatId: message.chat_id,
                                     offer: message.offer,
                                     isVideo: !!message.is_video
-                                }
+                                },
+                                isVideo: !!message.is_video
                             }
                         }));
                     } else if (message.type === 'webrtc_answer') {
@@ -597,7 +608,7 @@ export const useStore = create<AppState>()(
                             return;
                         }
 
-                        get().showToast('success', 'Call Connected', 'Remote answered');
+                        console.log('[Signaling] Call Connected: Remote answered');
                         stopRingtone(); // Stop dialing sound
                         console.log('[Signaling] Applying remote answer...');
                         await webrtcService.setRemoteDescription(message.answer);
@@ -634,7 +645,6 @@ export const useStore = create<AppState>()(
                         }
                     } else if (message.type === 'call_ended') {
                         console.log('[Signaling] Call ended by peer');
-                        get().showToast('info', 'Call Ended', 'The other person ended the call');
                         const { callState } = get();
                         if (callState.activeChatId === message.chat_id || callState.incomingCall?.chatId === message.chat_id) {
                             webrtcService.endCall(); // Cleanup WebRTC
@@ -647,7 +657,8 @@ export const useStore = create<AppState>()(
                                     localStream: null,
                                     activeChatId: null,
                                     bufferedCandidates: [],
-                                    isMinimized: false
+                                    isMinimized: false,
+                                    isRequestingPermissions: false,
                                 }
                             }));
                         }
@@ -712,13 +723,19 @@ export const useStore = create<AppState>()(
                 },
                 sendFileMessage: async (chatId, file, text = '', replyToId) => {
                     const { token, user } = get();
-                    if (!token) return;
-
-                    // Optimistic UI (optional/tricky with file blobs). 
-                    // For now, let's rely on server response or show a "sending" indicator in UI component.
-                    // But we can add a temp message if we want.
+                    if (!token) {
+                        console.error('No token available for file upload');
+                        throw new Error('Authentication required. Please log in again.');
+                    }
 
                     try {
+                        console.log('Uploading file:', {
+                            chatId,
+                            fileName: file.name,
+                            fileType: file.mimeType,
+                            fileUri: file.uri
+                        });
+
                         const response = await api.chat.uploadFile(token, chatId, null, file, text, replyToId);
 
                         // Download media file locally if present
@@ -726,7 +743,12 @@ export const useStore = create<AppState>()(
                         if (response.file) {
                             const fullMediaUrl = getMediaUrl(response.file);
                             if (fullMediaUrl) {
-                                localFileUri = await downloadMedia(fullMediaUrl, response.id.toString());
+                                try {
+                                    localFileUri = await downloadMedia(fullMediaUrl, response.id.toString());
+                                } catch (downloadError) {
+                                    console.warn('Failed to download media locally, using remote URL:', downloadError);
+                                    // Continue with remote URL if local download fails
+                                }
                             }
                         }
 
@@ -745,9 +767,30 @@ export const useStore = create<AppState>()(
                             conversation_id: chatId,
                         };
                         get().addMessage(msg);
-                    } catch (e) {
+
+                        console.log('File message sent successfully:', response.id);
+                    } catch (e: any) {
                         console.error('Send file failed', e);
-                        // Ensure UI handles error (e.g. via toast or status)
+
+                        // Provide user-friendly error messages
+                        let errorMessage = 'Failed to send file. Please try again.';
+
+                        if (e.message) {
+                            if (e.message.includes('Network')) {
+                                errorMessage = 'Network error. Please check your internet connection.';
+                            } else if (e.message.includes('File not found')) {
+                                errorMessage = 'File not found. Please try selecting the file again.';
+                            } else if (e.message.includes('too large')) {
+                                errorMessage = e.message; // Use the specific size message
+                            } else if (e.message.includes('Authentication')) {
+                                errorMessage = 'Session expired. Please log in again.';
+                            } else {
+                                errorMessage = e.message;
+                            }
+                        }
+
+                        // Re-throw with user-friendly message for UI to handle
+                        throw new Error(errorMessage);
                     }
                 },
                 syncMessages: async () => {
@@ -1324,7 +1367,7 @@ export const useStore = create<AppState>()(
                                         merged.push(old);
                                     } else {
                                         const index = merged.findIndex(m => m.id === old.id);
-                                        if (index !== -1 && old.file?.startsWith('file://')) {
+                                        if (index !== -1 && typeof old.file === 'string' && old.file.startsWith('file://')) {
                                             merged[index].file = old.file;
                                         }
                                     }
@@ -1393,7 +1436,8 @@ export const useStore = create<AppState>()(
                                     existing.forEach(old => {
                                         const indexInMerged = merged.findIndex(m => m.id === old.id);
                                         if (indexInMerged !== -1) {
-                                            if (old.file?.startsWith('file://')) {
+                                            // Preserve local file URI if it exists and is a string
+                                            if (typeof old.file === 'string' && old.file.startsWith('file://')) {
                                                 merged[indexInMerged].file = old.file;
                                             }
                                         } else {

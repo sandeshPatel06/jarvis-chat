@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, View, TouchableOpacity, Text, Dimensions } from 'react-native';
 import { RTCView } from 'react-native-webrtc';
 import { useStore } from '@/store';
-import { useRouter } from 'expo-router';
+import { useRouter, useSegments } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAppTheme } from '@/hooks/useAppTheme';
 
@@ -12,11 +12,13 @@ const MINI_WINDOW_HEIGHT = 180;
 
 export const CallMiniWindow = () => {
     const router = useRouter();
+    const segments = useSegments();
     const { colors } = useAppTheme();
-    const { callState, setIsMinimized } = useStore();
-    const { isCalling, isMinimized, remoteStream, localStream, activeChatId, chats } = callState;
+    const { callState, setIsMinimized, chats } = useStore();
+    const { isCalling, isMinimized, remoteStream, localStream, activeChatId } = callState;
 
-    if (!isCalling || !isMinimized) return null;
+    const isOnCallScreen = segments[0] === 'call';
+    if (!isCalling || !isMinimized || isOnCallScreen) return null;
 
     const chat = chats.find(c => c.id === activeChatId);
     const displayName = chat?.name || 'Call';
@@ -61,10 +63,6 @@ export const CallMiniWindow = () => {
                 )}
             </View>
 
-            <View style={styles.badge}>
-                <View style={styles.dot} />
-                <Text style={styles.badgeText}>Live</Text>
-            </View>
         </TouchableOpacity>
     );
 };

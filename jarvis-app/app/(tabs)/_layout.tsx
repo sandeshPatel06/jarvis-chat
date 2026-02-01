@@ -60,19 +60,18 @@ export default function TabLayout() {
           backgroundColor: colors.background,
           elevation: 0,
           shadowOpacity: 0,
-          borderBottomWidth: 0.5,
-          borderBottomColor: colors.itemSeparator,
-          height: Platform.OS === 'ios' ? 100 : 80, // Taller header
+          borderBottomWidth: 0, // Cleaner look
+          // Height will be automatic plus status bar height
         },
         headerTitleStyle: {
           color: colors.text,
-          fontSize: 24, // Larger title
-          fontWeight: '700',
+          fontSize: 28, // Even larger title for premium feel
+          fontWeight: '800', // Bolder
         },
         headerTitleAlign: 'left',
+        headerStatusBarHeight: insets.top, // Explicitly handle status bar height
         headerTitleContainerStyle: {
-          paddingBottom: 10,
-          paddingLeft: 10
+          paddingLeft: 10,
         },
       }}>
       <Tabs.Screen
@@ -87,7 +86,7 @@ export default function TabLayout() {
             </View>
           ),
           headerRight: () => (
-            <View style={{ flexDirection: 'row', marginRight: 20, gap: 20, paddingBottom: 10,justifyContent: 'center' }}>
+            <View style={{ flexDirection: 'row', marginRight: 20, gap: 20, paddingBottom: 10, justifyContent: 'center' }}>
               <TouchableOpacity onPress={() => {
                 router.setParams({ triggerSearch: Date.now().toString() });
               }}>
@@ -134,8 +133,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="settings"
         options={{
+          headerShown: false,
           title: 'Settings',
-          headerTitle: 'Settings',
           tabBarIcon: ({ color, focused }) => (
             <View style={{ alignItems: 'center', justifyContent: 'center', top: 10 }}>
               <FontAwesome name="cog" size={24} color={color} />
