@@ -14,8 +14,10 @@ import {
     Modal,
     Pressable,
     Text,
-    LayoutAnimation,
-    TextInput
+    TextInput,
+    Image,
+    ActivityIndicator,
+    LayoutAnimation
 } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -330,22 +332,39 @@ export default function ChatDetailScreen() {
         if (!loadingMore) return null;
         return (
             <View style={{ padding: 10, alignItems: 'center' }}>
-                <Text style={{ color: colors.text, fontSize: 12 }}>Loading more...</Text>
+                <ActivityIndicator size="small" color={colors.primary} />
             </View>
         );
     };
 
     /* -------------------- render -------------------- */
+    const user = useStore(useCallback((state: any) => state.user, []));
+    const wallpaper = user?.chat_wallpaper || 'default';
+    const isImageWallpaper = wallpaper !== 'default' && !wallpaper.startsWith('#');
+    const backgroundColor = (wallpaper !== 'default' && wallpaper.startsWith('#')) ? wallpaper : colors.background;
+
     return (
         <ScreenWrapper
-            style={styles.container}
-            edges={['top', 'left', 'right']} // Bottom handled by ChatInput
+            style={[styles.container, { backgroundColor }]}
+            edges={['left', 'right']}
             withExtraTopPadding={false}
         >
+            {/* Background Image Layer */}
+            {isImageWallpaper && (
+                <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+                    <Image
+                        source={{ uri: wallpaper }}
+                        style={StyleSheet.absoluteFillObject}
+                        resizeMode="cover"
+                    />
+                </View>
+            )}
+
             <ChatHeader
                 chat={chat}
                 typingUser={typingUser}
                 onOptionsPress={() => setChatOptionsVisible(true)}
+                style={{ backgroundColor: isImageWallpaper ? 'transparent' : colors.background }}
             />
 
             {/* Chat Options Modal */}
@@ -360,7 +379,7 @@ export default function ChatDetailScreen() {
                         <TouchableOpacity onPress={async () => {
                             setChatOptionsVisible(false);
                             const { exportChatAsEmail } = await import('@/utils/chatExport');
-                            await exportChatAsEmail(messages, chat.name);
+                            await exportChatAsEmail(chat.messages, chat.name);
                         }} style={styles.menuOption}>
                             <Text style={{ color: colors.text, fontSize: 16 }}>Export as Email</Text>
                             <MaterialCommunityIcons name="email-outline" size={20} color={colors.text} />
@@ -511,7 +530,7 @@ export default function ChatDetailScreen() {
                     keyExtractor={(item) => item.id.toString()}
                     renderItem={renderMessage}
                     inverted={true}
-                    style={{ flex: 1 }}
+                    style={{ flex: 1, backgroundColor: 'transparent' }}
                     contentContainerStyle={styles.listContent}
                     keyboardDismissMode="interactive"
                     keyboardShouldPersistTaps="handled"

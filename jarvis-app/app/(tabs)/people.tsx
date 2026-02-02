@@ -156,9 +156,12 @@ export default function PeopleScreen() {
         router.push(`/chat/${contact.id}`);
     };
 
-    const filteredContacts = contacts.filter((contact) =>
-        contact.username.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filteredContacts = contacts.filter((contact) => {
+        const query = searchQuery.toLowerCase();
+        const nameMatch = contact.username.toLowerCase().includes(query);
+        const phoneMatch = contact.phone ? contact.phone.includes(query) : false; // Substring match ("unordered")
+        return nameMatch || phoneMatch;
+    });
 
     const renderContact = ({ item }: { item: Contact }) => {
         // Check if contact has Jarvis account
@@ -211,9 +214,9 @@ export default function PeopleScreen() {
     };
 
     return (
-        <ScreenWrapper style={styles.container} edges={['left', 'right']}>
+        <ScreenWrapper style={styles.container} edges={['left', 'right']} withExtraTopPadding={false}>
             <View style={styles.header}>
-                <Text style={[styles.title, { color: colors.text }]}>People</Text>
+                {/* Title removed to prevent duplication with Tab Header */}
                 <View style={[styles.searchContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
                     <FontAwesome name="search" size={16} color={colors.textSecondary} style={styles.searchIcon} />
                     <TextInput
@@ -227,11 +230,10 @@ export default function PeopleScreen() {
             </View>
 
             {loading ? (
-                <View style={styles.loadingContainer}>
+                <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
                     <ActivityIndicator size="large" color={colors.primary} />
-                    <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading contacts...</Text>
                 </View>
-            ) : filteredContacts.length === 0 ? (
+            ) : (filteredContacts.length === 0 ? (
                 <View style={styles.emptyContainer}>
                     <FontAwesome name="users" size={60} color={colors.textSecondary} style={{ opacity: 0.3 }} />
                     <Text style={[styles.emptyText, { color: colors.textSecondary }]}>

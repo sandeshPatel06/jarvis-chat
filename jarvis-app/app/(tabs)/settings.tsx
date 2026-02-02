@@ -51,14 +51,12 @@ export default function SettingsScreen() {
 
 
     return (
-        <ScreenWrapper style={styles.container} edges={['left', 'right']}>
+        <ScreenWrapper style={styles.container} edges={['left', 'right']} withExtraTopPadding={false}>
             <ScrollView
                 style={styles.container}
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
             >
-                <Text style={[styles.pageTitle, { color: colors.text }]}>Settings</Text>
-
                 {/* Profile Header Card */}
                 <TouchableOpacity
                     onPress={() => router.push('/settings/profile')}
@@ -155,24 +153,24 @@ export default function SettingsScreen() {
                             colors={colors}
                         />
                     </SettingCard>
-                        <SettingItem
-                            icon="lock"
-                            title="App Lock"
-                            subtitle="Secure app with biometric authentication"
-                            onPress={() => {
-                                import('expo-local-authentication').then(async (LocalAuth) => {
-                                    const hasHardware = await LocalAuth.hasHardwareAsync();
-                                    if (!hasHardware) {
-                                        import('react-native').then(({ Alert }) => {
-                                            Alert.alert('Not Supported', 'Biometric authentication is not available on this device');
-                                        });
-                                        return;
-                                    }
-                                    router.push('/settings/app-lock');
-                                });
-                            }}
-                            colors={colors}
-                        />
+                    <SettingItem
+                        icon="lock"
+                        title="App Lock"
+                        subtitle="Secure app with biometric authentication"
+                        onPress={() => {
+                            import('expo-local-authentication').then(async (LocalAuth) => {
+                                const hasHardware = await LocalAuth.hasHardwareAsync();
+                                if (!hasHardware) {
+                                    import('react-native').then(({ Alert }) => {
+                                        Alert.alert('Not Supported', 'Biometric authentication is not available on this device');
+                                    });
+                                    return;
+                                }
+                                router.push('/settings/app-lock');
+                            });
+                        }}
+                        colors={colors}
+                    />
                 </View>
 
                 <TouchableOpacity

@@ -1,5 +1,4 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, Image, StyleSheet, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, Image, StyleSheet, Alert, ViewStyle } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import * as SMS from 'expo-sms';
@@ -9,18 +8,21 @@ import { useStore } from '@/store';
 import { useRouter } from 'expo-router';
 import { getMediaUrl } from '@/utils/media';
 import { formatLastSeen } from '@/utils/date';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface ChatHeaderProps {
     chat: Chat;
     typingUser: string | null;
     onOptionsPress: () => void;
     onSMSPress?: () => void;
+    style?: ViewStyle;
 }
 
-export const ChatHeader = ({ chat, typingUser, onOptionsPress, onSMSPress }: ChatHeaderProps) => {
+export const ChatHeader = ({ chat, typingUser, onOptionsPress, onSMSPress, style }: ChatHeaderProps) => {
     const { colors } = useAppTheme();
     const router = useRouter();
     const startCall = useStore((state) => state.startCall);
+    const insets = useSafeAreaInsets();
 
     const handleVideoCall = () => {
         startCall(chat.id, true);
@@ -63,8 +65,10 @@ export const ChatHeader = ({ chat, typingUser, onOptionsPress, onSMSPress }: Cha
                 styles.header,
                 {
                     backgroundColor: colors.background, // Clean background
-                    borderBottomColor: colors.border,
+                    borderBottomColor: "transparent",
+                    paddingTop: insets.top + 10,
                 },
+                style
             ]}
         >
             <TouchableOpacity

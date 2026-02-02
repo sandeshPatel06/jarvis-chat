@@ -5,10 +5,9 @@ import { useStore } from '@/store';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View, BackHandler } from 'react-native';
 import { RTCView } from 'react-native-webrtc';
-import { useRef } from 'react';
 
 export default function CallScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
@@ -16,11 +15,11 @@ export default function CallScreen() {
     const { colors } = useAppTheme();
 
     // Granular selectors to isolate re-renders
-    const localStream = useStore(useCallback((state: any) => state.callState.localStream, []));
-    const remoteStream = useStore(useCallback((state: any) => state.callState.remoteStream, []));
-    const isCalling = useStore(useCallback((state: any) => state.callState.isCalling, []));
-    const endCall = useStore(useCallback((state: any) => state.endCall, []));
-    const setIsMinimized = useStore(useCallback((state: any) => state.setIsMinimized, []));
+    const localStream = useStore((state: any) => state.callState.localStream);
+    const remoteStream = useStore((state: any) => state.callState.remoteStream);
+    const isCalling = useStore((state: any) => state.callState.isCalling);
+    const endCall = useStore((state: any) => state.endCall);
+    const setIsMinimized = useStore((state: any) => state.setIsMinimized);
     const chat = useStore(useCallback((state: any) => state.chats.find((c: any) => c.id === id) || null, [id]));
     const callHasStarted = useRef(isCalling);
 
@@ -42,13 +41,8 @@ export default function CallScreen() {
     }, [isCalling]);
 
     useEffect(() => {
-        console.log(`[CallScreen] 📺 Stream check: Local=${localStream?.toURL()}, Remote=${remoteStream?.toURL()}`);
         if (remoteStream) {
-            console.log(`[CallScreen] Remote Tracks: ${remoteStream.getTracks().length}`);
-            remoteStream.getTracks().forEach(t => {
-                console.log(`[CallScreen] Remote Track ${t.id}: Kind=${t.kind}, Enabled=${t.enabled}, Muted=${t.muted}`);
-                // Add fresh listeners to existing tracks if needed (though we do this in webrtc.ts)
-            });
+            // Add fresh listeners to existing tracks if needed (though we do this in webrtc.ts)
         }
     }, [remoteStream, localStream]);
 
@@ -116,8 +110,6 @@ export default function CallScreen() {
 
     return (
         <ScreenWrapper style={[styles.container, { backgroundColor: '#000' }]} edges={['top', 'left', 'right', 'bottom']} withExtraTopPadding={false}>
-            {/* Remote Stream (Full Screen) */}
-            {/* Remote Stream (Full Screen) */}
             <View style={styles.remoteStreamContainer}>
                 {isEnding ? (
                     <View style={styles.connectingContainer}>
@@ -243,7 +235,7 @@ const styles = StyleSheet.create({
     },
     controlsContainer: {
         position: 'absolute',
-        bottom: 40,
+        bottom: 60,
         left: 0,
         right: 0,
         flexDirection: 'row',

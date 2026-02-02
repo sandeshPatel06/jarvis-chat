@@ -30,11 +30,10 @@ export default function TabLayout() {
           backgroundColor: colors.background,
           borderTopWidth: 0,
           elevation: 0, // Remove default shadow
-          height: 60 + insets.bottom,
-          paddingBottom: insets.bottom,
+          height: 65 + insets.bottom,
+          paddingBottom: insets.bottom + 20,
           paddingTop: 0,
           position: 'absolute', // Floating effect
-          bottom: 20,
           left: 20,
           right: 20,
           borderRadius: 30, // Pill shape
@@ -133,8 +132,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="settings"
         options={{
-          headerShown: false,
           title: 'Settings',
+          headerTitle: 'Settings',
           tabBarIcon: ({ color, focused }) => (
             <View style={{ alignItems: 'center', justifyContent: 'center', top: 10 }}>
               <FontAwesome name="cog" size={24} color={color} />

@@ -12,8 +12,6 @@ import Animated, {
     withRepeat,
     withTiming,
     withDelay,
-    interpolate,
-    Extrapolate
 } from 'react-native-reanimated';
 import { getMediaUrl } from '@/utils/media';
 
@@ -40,12 +38,11 @@ export default function IncomingCallModal() {
     const { colors, isDark } = useAppTheme();
     const router = useRouter();
 
-    if (!incomingCall) return null;
-
-    const chat = chats.find(c => c.id === incomingCall.chatId);
+    const chat = incomingCall ? chats.find(c => c.id === incomingCall.chatId) : null;
     const avatarUri = chat?.avatar ? getMediaUrl(chat.avatar) : null;
 
     const handleAccept = async () => {
+        if (!incomingCall) return;
         await acceptCall();
         if (useStore.getState().callState.isCalling) {
             router.push(`/call/${incomingCall.chatId}`);
@@ -55,6 +52,8 @@ export default function IncomingCallModal() {
     const handleDecline = () => {
         endCall();
     };
+
+    if (!incomingCall) return null;
 
     return (
         <Modal
@@ -126,7 +125,7 @@ const styles = StyleSheet.create({
         width: '100%',
         height: '100%',
         justifyContent: 'space-between',
-        paddingVertical: 120,
+        paddingVertical: 100, // Increased padding
         paddingHorizontal: 50,
     },
     callerInfo: {
@@ -180,6 +179,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         width: '100%',
         marginBottom: 40,
+        paddingHorizontal: 20, // Added horizontal padding
     },
     button: {
         alignItems: 'center',

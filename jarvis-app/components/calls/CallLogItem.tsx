@@ -35,6 +35,7 @@ const CallLogItem = ({ item, user, colors, onPress }: CallLogItemProps) => {
                     />
                     <Text style={[styles.time, { color: 'gray' }]}>
                         {new Date(item.started_at).toLocaleString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}
+                        {item.duration > 0 && ` • ${Math.floor(item.duration / 60)}:${(item.duration % 60).toString().padStart(2, '0')}`}
                     </Text>
                 </View>
             </View>

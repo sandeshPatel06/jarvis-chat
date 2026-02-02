@@ -6,24 +6,49 @@ import { getMediaUrl } from '@/utils/media';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
-import { useEffect } from 'react';
-import { FlatList, Image, StyleSheet, TouchableOpacity } from 'react-native';
+import { useRef, useState, useMemo, useEffect, useCallback } from 'react';
+import { FlatList, Image, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import CallLogItem from '@/components/calls/CallLogItem';
-import { useCallback } from 'react';
 
 export default function CallsScreen() {
   const { colors, isDark } = useAppTheme();
   const router = useRouter();
-  const { calls, fetchCalls, startCall, user } = useStore(useCallback((state) => ({
-    calls: state.calls,
-    fetchCalls: state.fetchCalls,
-    startCall: state.startCall,
-    user: state.user
-  }), []));
+
+  // Store
+  const calls = useStore((state) => state.calls);
+  const fetchCalls = useStore((state) => state.fetchCalls);
+  const startCall = useStore((state) => state.startCall);
+  const user = useStore((state) => state.user);
+  const hasMoreCalls = useStore((state) => state.hasMoreCalls);
+
+  // Local State
+  const [filter, setFilter] = useState<'all' | 'incoming' | 'outgoing'>('all');
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchCalls();
   }, []);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchCalls(false);
+    setRefreshing(false);
+  };
+
+  const handleLoadMore = async () => {
+    if (isLoadingMore || !hasMoreCalls) return;
+    setIsLoadingMore(true);
+    await fetchCalls(true);
+    setIsLoadingMore(false);
+  };
+
+  const filteredCalls = useMemo(() => {
+    if (filter === 'all') return calls;
+    if (filter === 'incoming') return calls.filter(c => c.caller.username !== user?.username);
+    if (filter === 'outgoing') return calls.filter(c => c.caller.username === user?.username);
+    return calls;
+  }, [calls, filter, user]);
 
   const handleCall = useCallback((username: string, isVideo: boolean = false) => {
     const chat = useStore.getState().chats.find(c => c.name === username);
@@ -46,29 +71,58 @@ export default function CallsScreen() {
     );
   }, [user, colors, handleCall]);
 
+  const FilterTab = ({ label, value }: { label: string, value: typeof filter }) => (
+    <TouchableOpacity
+      style={[
+        styles.filterTab,
+        filter === value && { backgroundColor: colors.primary, borderColor: colors.primary }
+      ]}
+      onPress={() => setFilter(value)}
+    >
+      <Text style={[
+        styles.filterText,
+        filter === value ? { color: 'white' } : { color: colors.text }
+      ]}>{label}</Text>
+    </TouchableOpacity>
+  );
+
   return (
     <ScreenWrapper style={styles.container} edges={['left', 'right']} withExtraTopPadding={false}>
 
-      {calls.length === 0 ? (
+      {/* Filter Header */}
+      <View style={[styles.filterContainer, { borderBottomColor: colors.border }]}>
+        <FilterTab label="All" value="all" />
+        <FilterTab label="Received" value="incoming" />
+        <FilterTab label="Dialed" value="outgoing" />
+      </View>
+
+      {filteredCalls.length === 0 ? (
         <View style={styles.emptyContent}>
           <View style={[styles.iconContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}>
             <FontAwesome name="phone" size={40} color={colors.tabIconDefault} />
           </View>
-          <Text style={[styles.emptyTitle, { color: colors.text }]}>No Recent Calls</Text>
-          <Text style={styles.emptySubtitle}>Calls you make or receive will appear here.</Text>
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>No {filter !== 'all' ? filter : 'Recent'} Calls</Text>
+          <Text style={styles.emptySubtitle}>Calls will appear here.</Text>
         </View>
       ) : (
         <FlatList
-          data={calls}
+          data={filteredCalls}
           renderItem={renderItem}
           keyExtractor={(item) => item.id.toString()}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           getItemLayout={(_, index) => ({
-            length: 74, // Approximate height of each item (50 avatar + 24 padding)
+            length: 74,
             offset: 74 * index,
             index,
           })}
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.5}
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          ListFooterComponent={
+            isLoadingMore ? <ActivityIndicator size="small" color={colors.primary} style={{ padding: 20 }} /> : null
+          }
           initialNumToRender={10}
           maxToRenderPerBatch={10}
           windowSize={5}
@@ -147,5 +201,24 @@ const styles = StyleSheet.create({
     color: 'gray',
     textAlign: 'center',
     lineHeight: 20,
+  },
+  filterContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderBottomWidth: 0.5,
+    gap: 10,
+  },
+  filterTab: {
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    backgroundColor: 'rgba(150, 150, 150, 0.1)',
+  },
+  filterText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

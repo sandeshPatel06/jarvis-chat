@@ -174,7 +174,7 @@ export const api = {
                 log('Get blocked users error', error);
                 return [];
             }
-    },
+        },
     },
     contacts: {
         getContacts: async (token: string) => {
@@ -445,8 +445,8 @@ export const api = {
                 throw error;
             }
         },
-        getCalls: async (token: string) => {
-            const url = `${API_URL}/chat/calls/`;
+        getCalls: async (token: string, limit: number = 20, offset: number = 0) => {
+            const url = `${API_URL}/chat/calls/?limit=${limit}&offset=${offset}`;
             try {
                 log(`GET ${url}`);
                 const response = await fetch(url, {
@@ -457,9 +457,13 @@ export const api = {
                     },
                 });
                 const json = await response.json();
-                log(`Calls fetched from ${url}`, { count: json.length });
+
+                // Handle pagination (results array vs flat array)
+                const results = Array.isArray(json) ? json : (json.results || []);
+
+                log(`Calls fetched from ${url}`, { count: results.length });
                 if (!response.ok) throw new Error('Failed to fetch calls');
-                return json;
+                return results;
             } catch (error) {
                 log(`Fetch calls error from ${url}`, error);
                 console.error(error);

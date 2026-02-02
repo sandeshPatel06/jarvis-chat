@@ -174,10 +174,8 @@ export default function SelectContactScreen() {
     if (loading) {
         return (
             <ScreenWrapper style={styles.container}>
-                <Stack.Screen options={{ headerShown: false }} />
                 <View style={styles.loadingContainer}>
                     <ActivityIndicator size="large" color={colors.primary} />
-                    <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading contacts...</Text>
                 </View>
             </ScreenWrapper>
         );

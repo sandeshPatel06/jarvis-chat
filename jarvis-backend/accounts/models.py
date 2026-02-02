@@ -32,7 +32,7 @@ class User(AbstractUser):
     storage_auto_download_media = models.BooleanField(default=True)
 
     # Chat Settings
-    chat_wallpaper = models.CharField(max_length=50, blank=True, null=True)
+    chat_wallpaper = models.CharField(max_length=500, blank=True, null=True)
 
     # App Settings
     app_language = models.CharField(max_length=10, default='en')

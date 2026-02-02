@@ -38,9 +38,9 @@ export default function ChatsScreen() {
     const query = searchQuery.toLowerCase();
     if (!query) return chats;
     return chats.filter(chat =>
-      chat.name.toLowerCase().includes(query) ||
-      chat.lastMessage.toLowerCase().includes(query) ||
-      (chat.id && chat.id.toLowerCase().includes(query))
+      (chat.name && chat.name.toLowerCase().includes(query)) ||
+      (chat.lastMessage && chat.lastMessage.toLowerCase().includes(query)) ||
+      (chat.id && chat.id.toLowerCase().includes(query)) // ID usually contains the phone number
     );
   }, [chats, searchQuery]);
 

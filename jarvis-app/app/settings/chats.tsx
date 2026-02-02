@@ -21,14 +21,8 @@ export default function ChatsSettingsScreen() {
     const router = useRouter();
 
     const handleWallpaperSelection = useCallback(() => {
-        showAlert('Selection Wallpaper', 'Choose a background color for your chats', [
-            { text: 'Default', onPress: () => updateSettings({ chat_wallpaper: 'default' }) },
-            { text: 'Soft Blue', onPress: () => updateSettings({ chat_wallpaper: '#E3F2FD' }) },
-            { text: 'Soft Green', onPress: () => updateSettings({ chat_wallpaper: '#E8F5E9' }) },
-            { text: 'Dark Slate', onPress: () => updateSettings({ chat_wallpaper: '#263238' }) },
-            { text: 'Cancel', style: 'cancel' }
-        ]);
-    }, [showAlert, updateSettings]);
+        router.push('/settings/wallpaper');
+    }, [router]);
 
     const handleThemeSelection = useCallback(() => {
         showAlert('Choose Theme', 'Select your preferred app theme', [
