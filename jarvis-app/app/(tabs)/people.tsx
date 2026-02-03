@@ -248,7 +248,7 @@ export default function PeopleScreen() {
                     contentContainerStyle={styles.listContent}
                     showsVerticalScrollIndicator={false}
                 />
-            )}
+            ))}
         </ScreenWrapper>
     );
 }

@@ -5,7 +5,8 @@ import { useStore } from '@/store';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
+import { ActivityIndicator, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { ScreenWrapper } from '@/components/ScreenWrapper';
 import { useAppTheme } from '@/hooks/useAppTheme';
 
@@ -38,9 +39,11 @@ export default function LoginScreen() {
 
     return (
         <ScreenWrapper style={{ backgroundColor: colors.background }}>
-            <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                style={styles.container}
+            <KeyboardAwareScrollView
+                bottomOffset={100}
+                contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 20 }}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
             >
                 <View style={styles.content}>
                     <Text style={styles.title}>Welcome Back</Text>
@@ -94,7 +97,7 @@ export default function LoginScreen() {
                         </Link>
                     </View>
                 </View>
-            </KeyboardAvoidingView>
+            </KeyboardAwareScrollView>
         </ScreenWrapper>
     );
 }
