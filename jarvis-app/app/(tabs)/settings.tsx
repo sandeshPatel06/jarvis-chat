@@ -39,6 +39,7 @@ export default function SettingsScreen() {
     const { colors, isDark } = useAppTheme();
     const user = useStore(useCallback((state: any) => state.user, []));
     const logout = useStore(useCallback((state: any) => state.logout, []));
+    const showAlert = useStore(useCallback((state: any) => state.showAlert, []));
 
     const handleLogout = useCallback(() => {
         logout();
@@ -161,9 +162,7 @@ export default function SettingsScreen() {
                             import('expo-local-authentication').then(async (LocalAuth) => {
                                 const hasHardware = await LocalAuth.hasHardwareAsync();
                                 if (!hasHardware) {
-                                    import('react-native').then(({ Alert }) => {
-                                        Alert.alert('Not Supported', 'Biometric authentication is not available on this device');
-                                    });
+                                    showAlert('Not Supported', 'Biometric authentication is not available on this device');
                                     return;
                                 }
                                 router.push('/settings/app-lock');

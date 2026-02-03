@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { ScreenWrapper } from '@/components/ScreenWrapper';
 import { Text, View } from '@/components/Themed';
 import { useAppTheme } from '@/hooks/useAppTheme';
-import { StyleSheet, FlatList, Image, TouchableOpacity, TextInput, ActivityIndicator, Alert } from 'react-native';
+import { StyleSheet, FlatList, Image, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useStore } from '@/store';
@@ -28,6 +28,7 @@ export default function PeopleScreen() {
     const { colors } = useAppTheme();
     const router = useRouter();
     const token = useStore((state) => state.token);
+    const showAlert = useStore((state) => state.showAlert);
     const [contacts, setContacts] = useState<Contact[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
@@ -43,7 +44,7 @@ export default function PeopleScreen() {
             // Request contacts permission
             const { status } = await Contacts.requestPermissionsAsync();
             if (status !== 'granted') {
-                Alert.alert('Permission Denied', 'We need contacts permission to show your contacts');
+                showAlert('Permission Denied', 'We need contacts permission to show your contacts');
                 setLoading(false);
                 return;
             }
@@ -125,7 +126,8 @@ export default function PeopleScreen() {
             setContacts(mappedContacts);
         } catch (error) {
             console.error('Failed to fetch contacts:', error);
-            Alert.alert('Error', 'Failed to load contacts');
+            console.error('Failed to fetch contacts:', error);
+            showAlert('Error', 'Failed to load contacts');
         } finally {
             setLoading(false);
         }
@@ -135,7 +137,7 @@ export default function PeopleScreen() {
         try {
             const isAvailable = await SMS.isAvailableAsync();
             if (!isAvailable) {
-                Alert.alert('SMS Not Available', 'SMS is not available on this device');
+                showAlert('SMS Not Available', 'SMS is not available on this device');
                 return;
             }
 
@@ -147,7 +149,8 @@ export default function PeopleScreen() {
             await SMS.sendSMSAsync(phoneNumbers, message);
         } catch (error) {
             console.error('SMS invite error:', error);
-            Alert.alert('Error', 'Failed to send invite');
+            console.error('SMS invite error:', error);
+            showAlert('Error', 'Failed to send invite');
         }
     };
 

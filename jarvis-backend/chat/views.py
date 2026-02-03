@@ -1,12 +1,17 @@
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
-from .models import Conversation, Message, Reaction, Call
-from .serializers import ConversationSerializer, MessageSerializer, ReactionSerializer, CallSerializer
+from .models import Conversation, Message, Reaction
+from .serializers import ConversationSerializer, MessageSerializer, ReactionSerializer
 from django.db.models import Q, Count
 from django.contrib.auth import get_user_model
 from rest_framework.views import APIView
 
 User = get_user_model()
+try:
+    from accounts.models import BlockedUser
+except ImportError:
+    # Handle potential circular import if strictly necessary, but usually models are fine
+    pass
 
 class ConversationListView(generics.ListCreateAPIView):
     serializer_class = ConversationSerializer
@@ -27,19 +32,8 @@ class ConversationListView(generics.ListCreateAPIView):
 
         try:
             recipient = User.objects.get(username=recipient_username)
-            if recipient == request.user:
-                 # Self chat
-                conversation = Conversation.objects.filter(participants=request.user).annotate(num_participants=Count('participants')).filter(num_participants=1).first()
-                if not conversation:
-                     conversation = Conversation.objects.create()
-                     conversation.participants.add(request.user)
-            else:
-                # 1-on-1 chat
-                conversation = Conversation.objects.filter(participants=request.user).filter(participants=recipient).annotate(num_participants=Count('participants')).filter(num_participants=2).first()
-                
-                if not conversation:
-                    conversation = Conversation.objects.create()
-                    conversation.participants.add(request.user, recipient)
+            from utils.chat_utils import get_or_create_1on1_conversation
+            conversation, created = get_or_create_1on1_conversation(request.user, recipient)
             
             response_serializer = self.get_serializer(conversation)
             return Response(response_serializer.data, status=status.HTTP_201_CREATED)
@@ -69,7 +63,6 @@ class MessageListView(generics.ListAPIView):
 
     def get_queryset(self):
         conversation_id = self.kwargs['conversation_id']
-        from accounts.models import BlockedUser
         
         # Get list of users who have blocked the current request.user? NO.
         # We want to hide messages FROM users that the CURRENT USER has blocked.
@@ -201,17 +194,8 @@ class MessageUploadView(APIView):
             if not conversation and recipient_username:
                 try:
                     recipient = User.objects.get(username=recipient_username)
-                    if recipient == request.user:
-                        # Self chat
-                        conversation = Conversation.objects.filter(participants=request.user).annotate(num_participants=Count('participants')).filter(num_participants=1).first()
-                        if not conversation:
-                            conversation = Conversation.objects.create()
-                            conversation.participants.add(request.user)
-                    else:
-                        conversation = Conversation.objects.filter(participants=request.user).filter(participants=recipient).annotate(num_participants=Count('participants')).filter(num_participants=2).first()
-                        if not conversation:
-                            conversation = Conversation.objects.create()
-                            conversation.participants.add(request.user, recipient)
+                    from utils.chat_utils import get_or_create_1on1_conversation
+                    conversation, _ = get_or_create_1on1_conversation(request.user, recipient)
                 except User.DoesNotExist:
                     pass
 
@@ -228,7 +212,6 @@ class MessageUploadView(APIView):
             if conversation.participants.count() == 2:
                 other_user = conversation.participants.exclude(id=request.user.id).first()
                 if other_user:
-                    from accounts.models import BlockedUser
                     if BlockedUser.objects.filter(blocker=other_user, blocked=request.user).exists():
                          # return Response({"error": "You are blocked by this user"}, status=status.HTTP_403_FORBIDDEN)
                          is_blocked = True
@@ -278,20 +261,4 @@ class MessageUploadView(APIView):
             print(e)
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-class CallViewSet(generics.ListCreateAPIView):
-    serializer_class = CallSerializer
-    permission_classes = [permissions.IsAuthenticated]
 
-    def get_queryset(self):
-        # Return calls where user is caller OR receiver
-        return Call.objects.filter(
-            Q(caller=self.request.user) | Q(receiver=self.request.user)
-        ).order_by('-started_at')
-
-    def perform_create(self, serializer):
-        recipient_username = self.request.data.get('receiver_username')
-        try:
-            receiver = User.objects.get(username=recipient_username)
-            serializer.save(caller=self.request.user, receiver=receiver)
-        except User.DoesNotExist:
-             raise serializers.ValidationError("Receiver not found")

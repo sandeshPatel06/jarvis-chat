@@ -115,13 +115,7 @@ export default function ChatDetailScreen() {
         }
     }, [chat?.messages, markRead]);
 
-    if (!chat) {
-        return (
-            <View style={styles.container}>
-                <Text style={{ color: colors.text }}>Chat not found</Text>
-            </View>
-        );
-    }
+
 
     /* -------------------- handlers -------------------- */
     const handleTextChange = useCallback((value: string) => {
@@ -360,211 +354,217 @@ export default function ChatDetailScreen() {
                 </View>
             )}
 
-            <ChatHeader
-                chat={chat}
-                typingUser={typingUser}
-                onOptionsPress={() => setChatOptionsVisible(true)}
-                style={{ backgroundColor: isImageWallpaper ? 'transparent' : colors.background }}
-            />
+            {!chat ? (
+                <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+                    <Text style={{ color: colors.text }}>Chat not found</Text>
+                </View>
+            ) : (
+                <>
+                    <ChatHeader
+                        chat={chat}
+                        typingUser={typingUser}
+                        onOptionsPress={() => setChatOptionsVisible(true)}
+                        style={{ backgroundColor: isImageWallpaper ? 'transparent' : colors.background }}
+                    />
 
-            {/* Chat Options Modal */}
-            <Modal
-                transparent={true}
-                visible={chatOptionsVisible}
-                animationType="fade"
-                onRequestClose={() => setChatOptionsVisible(false)}
-            >
-                <Pressable style={styles.modalOverlay} onPress={() => setChatOptionsVisible(false)}>
-                    <View style={[styles.chatOptionsContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                        <TouchableOpacity onPress={async () => {
-                            setChatOptionsVisible(false);
-                            const { exportChatAsEmail } = await import('@/utils/chatExport');
-                            await exportChatAsEmail(chat.messages, chat.name);
-                        }} style={styles.menuOption}>
-                            <Text style={{ color: colors.text, fontSize: 16 }}>Export as Email</Text>
-                            <MaterialCommunityIcons name="email-outline" size={20} color={colors.text} />
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={async () => {
-                            setChatOptionsVisible(false);
-                            try {
-                                const isAvailable = await import('expo-sms').then(m => m.isAvailableAsync());
-                                if (!isAvailable) {
-                                    Alert.alert('SMS Not Available', 'SMS is not available on this device');
-                                    return;
-                                }
-                                const SMS = await import('expo-sms');
-                                await SMS.sendSMSAsync([], `Hi! Let's chat on Jarvis.`);
-                            } catch (error) {
-                                console.error('SMS error:', error);
-                                Alert.alert('Error', 'Failed to open SMS');
-                            }
-                        }} style={styles.menuOption}>
-                            <Text style={{ color: colors.text, fontSize: 16 }}>Send SMS</Text>
-                            <MaterialCommunityIcons name="message-text-outline" size={20} color={colors.text} />
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={() => {
-                            setChatOptionsVisible(false);
-                            import('react-native').then(({ Alert }) => {
-                                Alert.alert(
-                                    'Delete Chat',
-                                    'Are you sure you want to delete this chat?',
-                                    [
-                                        { text: 'Cancel', style: 'cancel' },
-                                        {
-                                            text: 'Delete',
-                                            style: 'destructive',
-                                            onPress: () => {
-                                                import('@/store').then(({ useStore }) => {
-                                                    useStore.getState().deleteChat(chat.id);
-                                                });
-                                                import('expo-router').then(({ useRouter }) => {
-                                                    useRouter().back();
-                                                });
+                    {/* Chat Options Modal */}
+                    <Modal
+                        transparent={true}
+                        visible={chatOptionsVisible}
+                        animationType="fade"
+                        onRequestClose={() => setChatOptionsVisible(false)}
+                    >
+                        <Pressable style={styles.modalOverlay} onPress={() => setChatOptionsVisible(false)}>
+                            <View style={[styles.chatOptionsContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                                <TouchableOpacity onPress={async () => {
+                                    setChatOptionsVisible(false);
+                                    const { exportChatAsEmail } = await import('@/utils/chatExport');
+                                    await exportChatAsEmail(chat.messages, chat.name);
+                                }} style={styles.menuOption}>
+                                    <Text style={{ color: colors.text, fontSize: 16 }}>Export as Email</Text>
+                                    <MaterialCommunityIcons name="email-outline" size={20} color={colors.text} />
+                                </TouchableOpacity>
+                                <TouchableOpacity onPress={async () => {
+                                    setChatOptionsVisible(false);
+                                    try {
+                                        const isAvailable = await import('expo-sms').then(m => m.isAvailableAsync());
+                                        if (!isAvailable) {
+                                            showAlert('SMS Not Available', 'SMS is not available on this device');
+                                            return;
+                                        }
+                                        const SMS = await import('expo-sms');
+                                        await SMS.sendSMSAsync([], `Hi! Let's chat on Jarvis.`);
+                                    } catch (error) {
+                                        console.error('SMS error:', error);
+                                        showAlert('Error', 'Failed to open SMS');
+                                    }
+                                }} style={styles.menuOption}>
+                                    <Text style={{ color: colors.text, fontSize: 16 }}>Send SMS</Text>
+                                    <MaterialCommunityIcons name="message-text-outline" size={20} color={colors.text} />
+                                </TouchableOpacity>
+                                <TouchableOpacity onPress={() => {
+                                    setChatOptionsVisible(false);
+                                    showAlert(
+                                        'Delete Chat',
+                                        'Are you sure you want to delete this chat?',
+                                        [
+                                            { text: 'Cancel', style: 'cancel' },
+                                            {
+                                                text: 'Delete',
+                                                style: 'destructive',
+                                                onPress: () => {
+                                                    import('@/store').then(({ useStore }) => {
+                                                        useStore.getState().deleteChat(chat.id);
+                                                    });
+                                                    import('expo-router').then(({ useRouter }) => {
+                                                        useRouter().back();
+                                                    });
+                                                },
                                             },
-                                        },
-                                    ]
-                                );
-                            });
-                        }} style={styles.menuOption}>
-                            <Text style={{ color: colors.error, fontSize: 16 }}>Delete Chat</Text>
-                            <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.error} />
-                        </TouchableOpacity>
-                    </View>
-                </Pressable>
-            </Modal>
+                                        ]
+                                    );
+                                }} style={styles.menuOption}>
+                                    <Text style={{ color: colors.error, fontSize: 16 }}>Delete Chat</Text>
+                                    <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.error} />
+                                </TouchableOpacity>
+                            </View>
+                        </Pressable>
+                    </Modal>
 
-            {/* Message Options Modal */}
-            <Modal
-                transparent={true}
-                visible={modalVisible}
-                animationType="fade"
-                onRequestClose={() => setModalVisible(false)}
-            >
-                <Pressable style={styles.modalOverlay} onPress={() => setModalVisible(false)}>
-                    <View style={[styles.modalContent, { backgroundColor: colors.background }]}>
-                        {selectedMessage && (
-                            <>
-                                {!showEmojiPicker ? (
-                                    <View style={styles.reactionRow}>
-                                        {['👍', '❤️', '😂', '😮', '😢'].map((emoji) => (
-                                            <TouchableOpacity key={emoji} onPress={() => handleReact(emoji)} style={styles.reactionButton}>
-                                                <Text style={{ fontSize: 24 }}>{emoji}</Text>
-                                            </TouchableOpacity>
-                                        ))}
-                                        <TouchableOpacity onPress={handleOpenEmojiPicker} style={styles.reactionButton}>
-                                            <Text style={{ fontSize: 24 }}>➕</Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                ) : (
-                                    <View style={styles.emojiPickerContainer}>
-                                        <TextInput
-                                            style={[styles.emojiInput, { color: colors.text, borderColor: colors.border }]}
-                                            placeholder="Type or paste emoji..."
-                                            placeholderTextColor={colors.tabIconDefault}
-                                            value={customEmoji}
-                                            onChangeText={setCustomEmoji}
-                                            autoFocus
-                                            onSubmitEditing={handleCustomEmojiSubmit}
-                                        />
-                                        <TouchableOpacity onPress={handleCustomEmojiSubmit} style={[styles.emojiSubmitButton, { backgroundColor: colors.primary }]}>
-                                            <MaterialCommunityIcons name="send" size={20} color="white" />
-                                        </TouchableOpacity>
-                                        <TouchableOpacity onPress={() => { setShowEmojiPicker(false); setCustomEmoji(''); }} style={styles.emojiCancelButton}>
-                                            <MaterialCommunityIcons name="close" size={20} color={colors.text} />
-                                        </TouchableOpacity>
-                                    </View>
-                                )}
-
-                                <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 10 }} />
-
+                    {/* Message Options Modal */}
+                    <Modal
+                        transparent={true}
+                        visible={modalVisible}
+                        animationType="fade"
+                        onRequestClose={() => setModalVisible(false)}
+                    >
+                        <Pressable style={styles.modalOverlay} onPress={() => setModalVisible(false)}>
+                            <View style={[styles.modalContent, { backgroundColor: colors.background }]}>
                                 {selectedMessage && (
                                     <>
-                                        <TouchableOpacity onPress={handleReplyOption} style={styles.menuOption}>
-                                            <Text style={{ color: colors.text, fontSize: 16 }}>Reply</Text>
-                                            <MaterialCommunityIcons name="reply" size={20} color={colors.text} />
-                                        </TouchableOpacity>
-
-                                        <TouchableOpacity onPress={handleCopyOption} style={styles.menuOption}>
-                                            <Text style={{ color: colors.text, fontSize: 16 }}>Copy</Text>
-                                            <MaterialCommunityIcons name="content-copy" size={20} color={colors.text} />
-                                        </TouchableOpacity>
-
-                                        {selectedMessage.file && (
-                                            <TouchableOpacity onPress={handleSaveToGallery} style={styles.menuOption}>
-                                                <Text style={{ color: colors.text, fontSize: 16 }}>Save to Gallery</Text>
-                                                <MaterialCommunityIcons name="download" size={20} color={colors.text} />
-                                            </TouchableOpacity>
+                                        {!showEmojiPicker ? (
+                                            <View style={styles.reactionRow}>
+                                                {['👍', '❤️', '😂', '😮', '😢'].map((emoji) => (
+                                                    <TouchableOpacity key={emoji} onPress={() => handleReact(emoji)} style={styles.reactionButton}>
+                                                        <Text style={{ fontSize: 24 }}>{emoji}</Text>
+                                                    </TouchableOpacity>
+                                                ))}
+                                                <TouchableOpacity onPress={handleOpenEmojiPicker} style={styles.reactionButton}>
+                                                    <Text style={{ fontSize: 24 }}>➕</Text>
+                                                </TouchableOpacity>
+                                            </View>
+                                        ) : (
+                                            <View style={styles.emojiPickerContainer}>
+                                                <TextInput
+                                                    style={[styles.emojiInput, { color: colors.text, borderColor: colors.border }]}
+                                                    placeholder="Type or paste emoji..."
+                                                    placeholderTextColor={colors.tabIconDefault}
+                                                    value={customEmoji}
+                                                    onChangeText={setCustomEmoji}
+                                                    autoFocus
+                                                    onSubmitEditing={handleCustomEmojiSubmit}
+                                                />
+                                                <TouchableOpacity onPress={handleCustomEmojiSubmit} style={[styles.emojiSubmitButton, { backgroundColor: colors.primary }]}>
+                                                    <MaterialCommunityIcons name="send" size={20} color="white" />
+                                                </TouchableOpacity>
+                                                <TouchableOpacity onPress={() => { setShowEmojiPicker(false); setCustomEmoji(''); }} style={styles.emojiCancelButton}>
+                                                    <MaterialCommunityIcons name="close" size={20} color={colors.text} />
+                                                </TouchableOpacity>
+                                            </View>
                                         )}
 
-                                        {selectedMessage.sender === 'me' && (
+                                        <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 10 }} />
+
+                                        {selectedMessage && (
                                             <>
-                                                <TouchableOpacity onPress={handleEditOption} style={styles.menuOption}>
-                                                    <Text style={{ color: colors.text, fontSize: 16 }}>Edit</Text>
-                                                    <MaterialCommunityIcons name="pencil-outline" size={20} color={colors.text} />
+                                                <TouchableOpacity onPress={handleReplyOption} style={styles.menuOption}>
+                                                    <Text style={{ color: colors.text, fontSize: 16 }}>Reply</Text>
+                                                    <MaterialCommunityIcons name="reply" size={20} color={colors.text} />
                                                 </TouchableOpacity>
-                                                <TouchableOpacity onPress={handleDeleteOption} style={styles.menuOption}>
-                                                    <Text style={{ color: colors.error, fontSize: 16 }}>Delete</Text>
-                                                    <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.error} />
+
+                                                <TouchableOpacity onPress={handleCopyOption} style={styles.menuOption}>
+                                                    <Text style={{ color: colors.text, fontSize: 16 }}>Copy</Text>
+                                                    <MaterialCommunityIcons name="content-copy" size={20} color={colors.text} />
                                                 </TouchableOpacity>
+
+                                                {selectedMessage.file && (
+                                                    <TouchableOpacity onPress={handleSaveToGallery} style={styles.menuOption}>
+                                                        <Text style={{ color: colors.text, fontSize: 16 }}>Save to Gallery</Text>
+                                                        <MaterialCommunityIcons name="download" size={20} color={colors.text} />
+                                                    </TouchableOpacity>
+                                                )}
+
+                                                {selectedMessage.sender === 'me' && (
+                                                    <>
+                                                        <TouchableOpacity onPress={handleEditOption} style={styles.menuOption}>
+                                                            <Text style={{ color: colors.text, fontSize: 16 }}>Edit</Text>
+                                                            <MaterialCommunityIcons name="pencil-outline" size={20} color={colors.text} />
+                                                        </TouchableOpacity>
+                                                        <TouchableOpacity onPress={handleDeleteOption} style={styles.menuOption}>
+                                                            <Text style={{ color: colors.error, fontSize: 16 }}>Delete</Text>
+                                                            <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.error} />
+                                                        </TouchableOpacity>
+                                                    </>
+                                                )}
                                             </>
                                         )}
+                                        <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.menuOption}>
+                                            <Text style={{ color: colors.text, fontSize: 16 }}>Cancel</Text>
+                                        </TouchableOpacity>
                                     </>
                                 )}
-                                <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.menuOption}>
-                                    <Text style={{ color: colors.text, fontSize: 16 }}>Cancel</Text>
-                                </TouchableOpacity>
-                            </>
-                        )}
-                    </View>
-                </Pressable>
-            </Modal>
+                            </View>
+                        </Pressable>
+                    </Modal>
 
-            <KeyboardAvoidingView
-                style={{ flex: 1 }}
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-            >
-                <FlatList
-                    ref={flatListRef}
-                    data={chat.messages}
-                    keyExtractor={(item) => item.id.toString()}
-                    renderItem={renderMessage}
-                    inverted={true}
-                    style={{ flex: 1, backgroundColor: 'transparent' }}
-                    contentContainerStyle={styles.listContent}
-                    keyboardDismissMode="interactive"
-                    keyboardShouldPersistTaps="handled"
-                    onEndReached={handleLoadMore}
-                    onEndReachedThreshold={0.5}
-                    ListFooterComponent={renderFooter}
-                    initialNumToRender={15}
-                    maxToRenderPerBatch={10}
-                    windowSize={10}
-                    removeClippedSubviews={Platform.OS === 'android'}
-                />
+                    <KeyboardAvoidingView
+                        style={{ flex: 1 }}
+                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+                    >
+                        <FlatList
+                            ref={flatListRef}
+                            data={chat.messages}
+                            keyExtractor={(item) => item.id.toString()}
+                            renderItem={renderMessage}
+                            inverted={true}
+                            style={{ flex: 1, backgroundColor: 'transparent' }}
+                            contentContainerStyle={styles.listContent}
+                            keyboardDismissMode="interactive"
+                            keyboardShouldPersistTaps="handled"
+                            onEndReached={handleLoadMore}
+                            onEndReachedThreshold={0.5}
+                            ListFooterComponent={renderFooter}
+                            initialNumToRender={15}
+                            maxToRenderPerBatch={10}
+                            windowSize={10}
+                            removeClippedSubviews={Platform.OS === 'android'}
+                        />
 
-                <ChatInput
-                    chatId={chat.id}
-                    text={text}
-                    setText={handleTextChange}
-                    handleSend={handleSend}
-                    editingMessageId={editingMessageId}
-                    setEditingMessageId={setEditingMessageId}
-                    replyingToMessage={replyingToMessage}
-                    setReplyingToMessage={setReplyingToMessage}
-                    insets={insets}
-                    keyboardVisible={keyboardVisible}
-                />
-            </KeyboardAvoidingView>
+                        <ChatInput
+                            chatId={chat.id}
+                            text={text}
+                            setText={handleTextChange}
+                            handleSend={handleSend}
+                            editingMessageId={editingMessageId}
+                            setEditingMessageId={setEditingMessageId}
+                            replyingToMessage={replyingToMessage}
+                            setReplyingToMessage={setReplyingToMessage}
+                            insets={insets}
+                            keyboardVisible={keyboardVisible}
+                        />
+                    </KeyboardAvoidingView>
 
-            {/* Forward Message Modal */}
-            <ForwardMessageModal
-                visible={forwardModalVisible}
-                onClose={() => setForwardModalVisible(false)}
-                message={messageToForward}
-                chats={chats.filter((c: any) => c.id !== chat.id)}
-                onForward={handleForwardSubmit}
-            />
+                    {/* Forward Message Modal */}
+                    <ForwardMessageModal
+                        visible={forwardModalVisible}
+                        onClose={() => setForwardModalVisible(false)}
+                        message={messageToForward}
+                        chats={chats.filter((c: any) => c.id !== chat.id)}
+                        onForward={handleForwardSubmit}
+                    />
+                </>
+            )}
         </ScreenWrapper>
     );
 }

@@ -880,16 +880,7 @@ export const useStore = create<AppState>()(
                     const { socket } = get();
                     // We'll trust the server to echo this back for now, or could optimistic update if needed
                     // For simplicity, let's just send it. If we want optimistic:
-                    /*
-                    set((state) => ({
-                        chats: state.chats.map((chat) => {
-                            if (chat.id === chatId) {
-                                 // ... logic to add reaction to message ...
-                            }
-                            return chat;
-                        })
-                    }));
-                    */
+
 
                     if (socket && socket.readyState === WebSocket.OPEN) {
                         socket.send(JSON.stringify({
@@ -1257,6 +1248,19 @@ export const useStore = create<AppState>()(
                     ws.onclose = () => {
                         console.log('[WS] Disconnected');
                         set({ socket: null });
+
+                        // Auto-reconnect logic
+                        const { token } = get();
+                        if (token) {
+                            console.log('[WS] Attempting to reconnect in 10s...');
+                            setTimeout(() => {
+                                const currentState = get();
+                                if (currentState.token && !currentState.socket) {
+                                    console.log('[WS] Reconnecting now...');
+                                    currentState.connectWebSocket();
+                                }
+                            }, 10000);
+                        }
                     };
 
                     set({ socket: ws });

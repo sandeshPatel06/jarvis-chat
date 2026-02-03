@@ -37,13 +37,7 @@ class CheckContactsView(APIView):
         phone_numbers = request.data.get('phone_numbers', [])
         
         # Normalize phone numbers: remove non-numeric chars and keep last 10 digits
-        def normalize_phone(phone):
-            # Remove all non-numeric characters
-            cleaned = ''.join(filter(str.isdigit, str(phone)))
-            # Keep last 10 digits (removes country codes like 91, 1, etc.)
-            if len(cleaned) > 10:
-                cleaned = cleaned[-10:]
-            return cleaned
+        from utils.formatting import normalize_phone
         
         # Normalize incoming phone numbers
         normalized_phones = [normalize_phone(p) for p in phone_numbers if p]

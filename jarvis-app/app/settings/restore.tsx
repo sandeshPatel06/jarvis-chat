@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator, Image, Platform } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Image, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -16,6 +16,7 @@ export default function RestoreSettingsScreen() {
     const router = useRouter();
     const token = useStore((state) => state.token);
     const restoreChats = useStore((state) => state.restoreChats);
+    const showAlert = useStore((state) => state.showAlert);
     const [deletedChats, setDeletedChats] = useState<Chat[]>([]);
     const [selectedChatIds, setSelectedChatIds] = useState<number[]>([]);
     const [loading, setLoading] = useState(true);
@@ -27,7 +28,7 @@ export default function RestoreSettingsScreen() {
             setDeletedChats(chats);
         } catch (e) {
             console.error(e);
-            Alert.alert('Error', 'Failed to fetch deleted chats');
+            showAlert('Error', 'Failed to fetch deleted chats');
         } finally {
             setLoading(false);
         }
@@ -46,17 +47,17 @@ export default function RestoreSettingsScreen() {
 
     const handleRestore = useCallback(async () => {
         if (selectedChatIds.length === 0) {
-            Alert.alert('Selection Required', 'Please select at least one chat to restore.');
+            showAlert('Selection Required', 'Please select at least one chat to restore.');
             return;
         }
 
         try {
             await restoreChats(selectedChatIds, undefined);
-            Alert.alert('Success', 'Selected chats have been restored', [
+            showAlert('Success', 'Selected chats have been restored', [
                 { text: 'OK', onPress: () => router.back() }
             ]);
         } catch (e) {
-            Alert.alert('Error', 'Failed to restore chats');
+            showAlert('Error', 'Failed to restore chats');
         }
     }, [selectedChatIds, restoreChats, router]);
 

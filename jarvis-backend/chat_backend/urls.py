@@ -5,6 +5,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/auth/', include('accounts.urls')),
     path('api/chat/', include('chat.urls')),
+    path('api/calls/', include('calls.urls')),
 ]
 
 from django.conf import settings

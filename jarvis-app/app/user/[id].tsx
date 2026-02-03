@@ -7,7 +7,7 @@ import { User } from '@/types';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, ScrollView, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { ActivityIndicator, Image, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { getMediaUrl } from '@/utils/media';
 
 export default function UserProfileScreen() {
@@ -23,6 +23,7 @@ export default function UserProfileScreen() {
     const unblockUser = useStore((state) => state.unblockUser);
     const fetchBlockedUsers = useStore((state) => state.fetchBlockedUsers);
     const startCall = useStore((state) => state.startCall);
+    const showAlert = useStore((state) => state.showAlert);
 
     const [userProfile, setUserProfile] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
@@ -194,7 +195,7 @@ export default function UserProfileScreen() {
                 <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.cardBorder, borderWidth: 1 }]}>
                     <TouchableOpacity style={styles.item} onPress={() => {
                         if (isBlocked) {
-                            Alert.alert(
+                            showAlert(
                                 'Unblock User',
                                 `Are you sure you want to unblock ${userProfile.username}?`,
                                 [
@@ -203,7 +204,7 @@ export default function UserProfileScreen() {
                                 ]
                             );
                         } else {
-                            Alert.alert(
+                            showAlert(
                                 'Block User',
                                 `Are you sure you want to block ${userProfile.username}?`,
                                 [

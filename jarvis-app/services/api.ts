@@ -446,7 +446,7 @@ export const api = {
             }
         },
         getCalls: async (token: string, limit: number = 20, offset: number = 0) => {
-            const url = `${API_URL}/chat/calls/?limit=${limit}&offset=${offset}`;
+            const url = `${API_URL}/calls/?limit=${limit}&offset=${offset}`;
             try {
                 log(`GET ${url}`);
                 const response = await fetch(url, {
@@ -471,7 +471,7 @@ export const api = {
             }
         },
         logCall: async (token: string, data: any) => {
-            const url = `${API_URL}/chat/calls/`;
+            const url = `${API_URL}/calls/`;
             try {
                 log(`POST ${url}`, data);
                 const response = await fetch(url, {

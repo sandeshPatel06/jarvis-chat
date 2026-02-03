@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Conversation, Message, Reaction, Call
+from .models import Conversation, Message, Reaction
 from accounts.serializers import UserSerializer
 
 class ReactionSerializer(serializers.ModelSerializer):
@@ -65,10 +65,4 @@ class ConversationSerializer(serializers.ModelSerializer):
         
         return None
 
-class CallSerializer(serializers.ModelSerializer):
-    caller = UserSerializer(read_only=True)
-    receiver = UserSerializer(read_only=True)
-    
-    class Meta:
-        model = Call
-        fields = ['id', 'caller', 'receiver', 'started_at', 'ended_at', 'status', 'is_video']
+

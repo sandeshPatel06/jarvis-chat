@@ -9,7 +9,7 @@ import * as Contacts from 'expo-contacts';
 import * as SMS from 'expo-sms';
 import { useRouter, Stack } from 'expo-router';
 import React, { useEffect, useState, useCallback } from 'react';
-import { ActivityIndicator, Alert, FlatList, Image, Pressable, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
+import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
 import { getMediaUrl } from '@/utils/media';
 import { formatLastSeen } from '@/utils/date';
 
@@ -27,6 +27,7 @@ interface Contact {
 export default function SelectContactScreen() {
     const router = useRouter();
     const token = useStore(useCallback((state: any) => state.token, []));
+    const showAlert = useStore(useCallback((state: any) => state.showAlert, []));
     const { colors, isDark } = useAppTheme();
     const [permissionGranted, setPermissionGranted] = useState(false);
     const [contacts, setContacts] = useState<Contact[]>([]);
@@ -145,7 +146,7 @@ export default function SelectContactScreen() {
             router.replace(`/chat/${conversation.id}`);
         } catch (error) {
             console.error(error);
-            Alert.alert('Error', 'Failed to start chat');
+            showAlert('Error', 'Failed to start chat');
         } finally {
             setLoading(false);
         }
@@ -155,7 +156,7 @@ export default function SelectContactScreen() {
         try {
             const isAvailable = await SMS.isAvailableAsync();
             if (!isAvailable) {
-                Alert.alert('SMS Not Available', 'SMS is not available on this device');
+                showAlert('SMS Not Available', 'SMS is not available on this device');
                 return;
             }
 
@@ -167,7 +168,7 @@ export default function SelectContactScreen() {
             await SMS.sendSMSAsync(phoneNumbers, message);
         } catch (error) {
             console.error('SMS invite error:', error);
-            Alert.alert('Error', 'Failed to send invite');
+            showAlert('Error', 'Failed to send invite');
         }
     };
 

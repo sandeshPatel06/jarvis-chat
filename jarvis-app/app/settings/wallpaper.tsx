@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, ScrollView, Image, Dimensions, Alert } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, ScrollView, Image, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ScreenWrapper } from '@/components/ScreenWrapper';
 import { useAppTheme } from '@/hooks/useAppTheme';
@@ -36,6 +36,7 @@ export default function WallpaperSettingsScreen() {
     const router = useRouter();
     const user = useStore((state) => state.user);
     const updateSettings = useStore((state) => state.updateSettings);
+    const showAlert = useStore((state) => state.showAlert);
 
     // Determine current selection type
     const currentWallpaper = user?.chat_wallpaper || 'default';
@@ -53,7 +54,7 @@ export default function WallpaperSettingsScreen() {
     const handlePickImage = async () => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
-            Alert.alert('Permission needed', 'Please allow access to your photos to set a custom wallpaper.');
+            showAlert('Permission needed', 'Please allow access to your photos to set a custom wallpaper.');
             return;
         }
 

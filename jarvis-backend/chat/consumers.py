@@ -343,6 +343,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         from .models import Conversation, Message
         from .serializers import MessageSerializer
         from django.db.models import Q
+        from utils.notifications import send_fcm_notification
 
         try:
             conversation = None
@@ -393,6 +394,23 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 # So we check if self.user is in participants and count is 1
                 if conversation.participants.count() == 1 and conversation.participants.first() == self.user:
                      derived_recipient_id = self.user.id
+
+                # Check if this is the first message in the conversation
+                if conversation.messages.count() == 1 and derived_recipient_id and derived_recipient_id != self.user.id:
+                    try:
+                        recipient_user = User.objects.get(id=derived_recipient_id)
+                        send_fcm_notification(
+                            user=recipient_user,
+                            title=f"New message from {self.user.username}",
+                            body=message_text[:100] if message_text else "Sent a file",
+                            data={
+                                "type": "new_conversation",
+                                "conversation_id": str(conversation.id),
+                                "sender_id": str(self.user.id)
+                            }
+                        )
+                    except Exception as e:
+                        print(f"Failed to send first message notification: {e}")
 
                 return data, derived_recipient_id, is_blocked
                 
