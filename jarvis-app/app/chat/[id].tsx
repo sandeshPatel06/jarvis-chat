@@ -259,7 +259,8 @@ export default function ChatDetailScreen() {
             if (fullUrl.startsWith('file://')) {
                 uriToSave = fullUrl;
             } else {
-                const fileUri = FileSystem.documentDirectory + 'temp_media_' + Date.now() + ext;
+                // @ts-ignore
+                const fileUri = FileSystem.cacheDirectory + 'temp_media_' + Date.now() + ext;
                 const downloadResult = await FileSystem.downloadAsync(fullUrl, fileUri);
                 if (downloadResult.status !== 200) throw new Error('Download status: ' + downloadResult.status);
                 uriToSave = downloadResult.uri;
@@ -333,9 +334,23 @@ export default function ChatDetailScreen() {
 
     /* -------------------- render -------------------- */
     const user = useStore(useCallback((state: any) => state.user, []));
+    const { isDark } = useAppTheme();
     const wallpaper = user?.chat_wallpaper || 'default';
-    const isImageWallpaper = wallpaper !== 'default' && !wallpaper.startsWith('#');
-    const backgroundColor = (wallpaper !== 'default' && wallpaper.startsWith('#')) ? wallpaper : colors.background;
+
+    // Determine background source
+    let backgroundSource = null;
+    let backgroundColor = colors.background;
+
+    if (wallpaper === 'default') {
+        // Use local assets for default wallpaper based on theme
+        backgroundSource = isDark
+            ? require('@/assets/images/chat-bg-dark.png')
+            : require('@/assets/images/chat-bg.png');
+    } else if (wallpaper.startsWith('#')) {
+        backgroundColor = wallpaper;
+    } else {
+        backgroundSource = { uri: wallpaper };
+    }
 
     return (
         <ScreenWrapper
@@ -344,11 +359,11 @@ export default function ChatDetailScreen() {
             withExtraTopPadding={false}
         >
             {/* Background Image Layer */}
-            {isImageWallpaper && (
+            {backgroundSource && (
                 <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
                     <Image
-                        source={{ uri: wallpaper }}
-                        style={StyleSheet.absoluteFillObject}
+                        source={backgroundSource}
+                        style={[StyleSheet.absoluteFillObject, { opacity: isDark ? 0.5 : 1 }]} // Slight opacity adjustment for dark mode if needed
                         resizeMode="cover"
                     />
                 </View>
@@ -364,7 +379,7 @@ export default function ChatDetailScreen() {
                         chat={chat}
                         typingUser={typingUser}
                         onOptionsPress={() => setChatOptionsVisible(true)}
-                        style={{ backgroundColor: isImageWallpaper ? 'transparent' : colors.background }}
+                        style={{ backgroundColor: backgroundSource ? 'transparent' : colors.background }}
                     />
 
                     {/* Chat Options Modal */}

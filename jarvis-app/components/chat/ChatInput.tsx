@@ -392,7 +392,7 @@ export const ChatInput = ({
                 </View>
             )}
             {selectedFile && (
-                <View style={[styles.filePreview, { backgroundColor: colors.inputBackground, marginHorizontal: 15, borderRadius: 15 }]}>
+                <View style={[styles.filePreview, { backgroundColor: colors.inputBackground }]}>
                     {selectedFile.mimeType?.startsWith('image/') ? (
                         <>
                             <Image
@@ -400,26 +400,34 @@ export const ChatInput = ({
                                 style={styles.previewImage}
                                 resizeMode="cover"
                             />
-                            <TouchableOpacity
-                                onPress={() => setShowImageEditor(true)}
-                                style={[styles.editButton, { backgroundColor: colors.primary }]}
-                            >
-                                <FontAwesome name="edit" size={16} color="#fff" />
-                            </TouchableOpacity>
+                            {/* Edit button now positioned differently in styles or could be an overlay on the small image */}
                         </>
                     ) : (
-                        <View style={styles.fileInfo}>
-                            <FontAwesome name="file" size={40} color={colors.text} />
-                            <Text style={[styles.fileName, { color: colors.text }]} numberOfLines={1}>
-                                {selectedFile.name}
-                            </Text>
-                            <Text style={[styles.fileSize, { color: colors.tabIconDefault }]}>
-                                {(selectedFile.size / 1024).toFixed(2)} KB
-                            </Text>
+                        <View style={{ width: 60, height: 60, borderRadius: 12, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }}>
+                            <FontAwesome name="file-text-o" size={24} color={colors.text} />
                         </View>
                     )}
+
+                    <View style={styles.fileInfo}>
+                        <Text style={[styles.fileName, { color: colors.text }]} numberOfLines={1}>
+                            {selectedFile.name}
+                        </Text>
+                        <Text style={[styles.fileSize, { color: colors.tabIconDefault }]}>
+                            {(selectedFile.size / 1024).toFixed(2)} KB
+                        </Text>
+                    </View>
+
+                    {selectedFile.mimeType?.startsWith('image/') && (
+                        <TouchableOpacity
+                            onPress={() => setShowImageEditor(true)}
+                            style={{ padding: 8, marginRight: 4 }}
+                        >
+                            <FontAwesome name="edit" size={20} color={colors.primary} />
+                        </TouchableOpacity>
+                    )}
+
                     <TouchableOpacity onPress={handleCancelFile} style={styles.cancelFileButton}>
-                        <FontAwesome name="times-circle" size={24} color={colors.text} />
+                        <FontAwesome name="times-circle" size={22} color={colors.tabIconDefault} />
                     </TouchableOpacity>
                 </View>
             )}
@@ -520,132 +528,157 @@ export const ChatInput = ({
 const styles = StyleSheet.create({
     inputContainer: {
         flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 10,
+        alignItems: 'flex-end',
+        paddingHorizontal: 8,
+        paddingVertical: 8,
     },
     attachButton: {
         padding: 10,
-        borderRadius: 22,
-        marginRight: 10,
+        borderRadius: 24,
+        marginRight: 8,
+        marginBottom: 2,
         width: 44,
         height: 44,
         alignItems: 'center',
-        justifyContent: 'center'
+        justifyContent: 'center',
     },
     input: {
         flex: 1,
-        borderRadius: 22, // Full pill shape
-        paddingHorizontal: 20,
-        paddingVertical: 12,
-        marginRight: 10,
-        maxHeight: 100,
+        borderRadius: 24,
+        paddingHorizontal: 16,
+        paddingTop: 10, // Center text vertically for single line, allow growth
+        paddingBottom: 10,
+        marginRight: 8,
+        maxHeight: 120,
         fontSize: 16,
+        minHeight: 44,
     },
     sendButtonContainer: {
+        marginBottom: 2,
         shadowColor: "#000",
         shadowOffset: {
             width: 0,
-            height: 4,
+            height: 2,
         },
-        shadowOpacity: 0.3,
-        shadowRadius: 4.65,
-        elevation: 8,
+        shadowOpacity: 0.2,
+        shadowRadius: 3,
+        elevation: 4,
     },
     sendButton: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
         alignItems: 'center',
         justifyContent: 'center',
     },
     replyPreview: {
         flexDirection: 'row',
-        padding: 10,
+        padding: 12,
         alignItems: 'center',
         borderBottomWidth: 0,
-        marginBottom: 5,
+        marginBottom: 8,
+        marginHorizontal: 12,
+        borderRadius: 16,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        elevation: 2,
+
     },
     replyBar: {
         width: 4,
         borderRadius: 2,
-        marginRight: 5,
+        marginRight: 10,
+        height: '100%',
     },
     attachMenu: {
         position: 'absolute',
-        bottom: 100, // Adjusted for modal positioning relative to screen bottom or just float
-        left: 20,
-        borderRadius: 16,
-        padding: 5,
-        elevation: 10,
-        minWidth: 180,
+        bottom: 80,
+        left: 16,
+        borderRadius: 20,
+        padding: 8,
+        elevation: 8,
+        minWidth: 200,
         shadowColor: "#000",
         shadowOffset: {
             width: 0,
             height: 4,
         },
-        shadowOpacity: 0.30,
-        shadowRadius: 4.65,
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
         borderWidth: 1,
     },
     modalOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0)', // Fully transparent or slightly dimmed if preferred
-        justifyContent: 'flex-end', // Align potentially to bottom or just let absolute positioning handle it
+        backgroundColor: 'rgba(0, 0, 0, 0.2)', // Slight dim
     },
     separator: {
         height: 1,
         width: '100%',
-        marginVertical: 2,
+        marginVertical: 4,
+        opacity: 0.1,
     },
     menuItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 10,
-    },
-    menuText: {
-        fontSize: 16,
-        marginLeft: 10,
-    },
-    filePreview: {
-        padding: 12,
-        marginBottom: 10,
-        position: 'relative',
-    },
-    previewImage: {
-        width: '100%',
-        height: 200,
+        paddingVertical: 12,
+        paddingHorizontal: 16,
         borderRadius: 12,
     },
-    fileInfo: {
+    menuText: {
+        fontSize: 15,
+        fontWeight: '500',
+        marginLeft: 12,
+    },
+    filePreview: {
+        padding: 8,
+        marginBottom: 8,
+        marginHorizontal: 12,
+        borderRadius: 16,
+        position: 'relative',
+        flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 20,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        elevation: 2,
+    },
+    previewImage: {
+        width: 60,
+        height: 60,
+        borderRadius: 12,
+        backgroundColor: 'rgba(0,0,0,0.05)',
+    },
+    fileInfo: {
+        flex: 1,
+        marginLeft: 12,
+        justifyContent: 'center',
     },
     fileName: {
         fontSize: 14,
         fontWeight: '600',
-        marginTop: 10,
-        maxWidth: '80%',
+        maxWidth: '90%',
     },
     fileSize: {
         fontSize: 12,
-        marginTop: 4,
+        marginTop: 2,
     },
     cancelFileButton: {
-        position: 'absolute',
-        top: 8,
-        right: 8,
-        padding: 4,
+        padding: 8,
     },
     editButton: {
         position: 'absolute',
-        bottom: 12,
-        right: 12,
-        padding: 10,
-        borderRadius: 20,
-        elevation: 3,
+        bottom: -4,
+        right: -4,
+        backgroundColor: 'white',
+        borderRadius: 12,
+        padding: 6,
+        elevation: 2,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 3.84,
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.2,
+        shadowRadius: 1,
     },
 });

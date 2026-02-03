@@ -24,7 +24,6 @@ export const MessageItemComponent = ({ item, onLongPress, onSwipeReply, onSwipeF
 
     const handleMediaPress = () => {
         if (item.file && item.file_type) {
-            // Open full-screen viewer for images and videos
             if (item.file_type.startsWith('image/') || item.file_type.startsWith('video/')) {
                 setViewerVisible(true);
             }
@@ -43,27 +42,17 @@ export const MessageItemComponent = ({ item, onLongPress, onSwipeReply, onSwipeF
         setImageError(true);
     };
 
-    // Get the image source URI - use local file if available, otherwise construct remote URL
     const getImageSource = () => {
         if (!item.file || imageError) {
-            // Fallback to remote file if local file failed or doesn't exist
             if ((item as any).remoteFile) {
                 const { getMediaUrl } = require('@/utils/media');
                 const remoteUrl = getMediaUrl((item as any).remoteFile);
-                if (remoteUrl) {
-                    return { uri: remoteUrl };
-                }
+                if (remoteUrl) return { uri: remoteUrl };
             }
             return null;
         }
-
-        // item.file could be a string URI or an object with a uri property
         const uri = typeof item.file === 'string' ? item.file : (item.file as any).uri;
-
-        if (uri) {
-            return { uri };
-        }
-
+        if (uri) return { uri };
         return null;
     };
 
@@ -71,7 +60,7 @@ export const MessageItemComponent = ({ item, onLongPress, onSwipeReply, onSwipeF
     const renderLeftActions = (progress: any, dragX: any) => {
         return (
             <View style={styles.swipeLeftAction}>
-                <MaterialCommunityIcons name="reply" size={24} color={colors.primary} />
+                <MaterialCommunityIcons name="reply" size={20} color={colors.primary} />
             </View>
         );
     };
@@ -89,7 +78,7 @@ export const MessageItemComponent = ({ item, onLongPress, onSwipeReply, onSwipeF
     const renderRightActions = (progress: any, dragX: any) => {
         return (
             <View style={styles.swipeRightAction}>
-                <MaterialCommunityIcons name="share" size={24} color={colors.primary} />
+                <MaterialCommunityIcons name="share-variant" size={20} color={colors.primary} />
             </View>
         );
     };
@@ -97,10 +86,13 @@ export const MessageItemComponent = ({ item, onLongPress, onSwipeReply, onSwipeF
     if (item.deleted_at) {
         const deletedDate = new Date(item.deleted_at);
         return (
-            <View style={[styles.messageContainer, { alignSelf: 'center', marginVertical: 10 }]}>
-                <Text style={{ fontStyle: 'italic', color: colors.tabIconDefault, fontSize: 12 }}>
-                    This message was deleted by {item.sender === 'me' ? 'you' : item.sender} on {deletedDate.toLocaleDateString()} at {deletedDate.toLocaleTimeString()}
-                </Text>
+            <View style={[styles.messageContainer, { alignSelf: 'center', marginVertical: 8 }]}>
+                <View style={[styles.deletedMessageBubble, { backgroundColor: colors.backgroundSecondary }]}>
+                    <MaterialCommunityIcons name="delete-outline" size={14} color={colors.tabIconDefault} style={{ marginRight: 4 }} />
+                    <Text style={{ fontStyle: 'italic', color: colors.tabIconDefault, fontSize: 11 }}>
+                        Message deleted
+                    </Text>
+                </View>
             </View>
         );
     }
@@ -114,8 +106,9 @@ export const MessageItemComponent = ({ item, onLongPress, onSwipeReply, onSwipeF
             overshootLeft={false}
             overshootRight={false}
             friction={2}
-            leftThreshold={80}
-            rightThreshold={80}
+            leftThreshold={60}
+            rightThreshold={60}
+            containerStyle={{ paddingVertical: 1 }} // Slight vertical spacing for swipeable
         >
             <View
                 style={[
@@ -123,21 +116,33 @@ export const MessageItemComponent = ({ item, onLongPress, onSwipeReply, onSwipeF
                     isMe ? styles.myMessageContainer : styles.theirMessageContainer,
                 ]}
             >
+                {!isMe && (
+                    <View style={styles.avatarContainer}>
+                        {/* Placeholder for user avatar - could be replaced with actual user image if available */}
+                        <View style={[styles.avatarStats, { backgroundColor: colors.card }]}>
+                            <Text style={{ fontSize: 10, color: colors.text, fontWeight: 'bold' }}>
+                                {item.sender ? item.sender.substring(0, 1).toUpperCase() : '?'}
+                            </Text>
+                        </View>
+                    </View>
+                )}
+
                 <TouchableOpacity
                     onLongPress={() => onLongPress(item)}
                     delayLongPress={300}
-                    activeOpacity={0.8}
+                    activeOpacity={0.9}
+                    style={{ flex: 1, alignItems: isMe ? 'flex-end' : 'flex-start' }}
                 >
                     {!isMe ? (
-                        <View>
+                        <View style={[styles.bubbleWrapper, { justifyContent: 'flex-start' }]}>
                             <View
                                 style={[
                                     styles.messageBubbleThem,
-                                    { backgroundColor: colors.messageBubbleThem }
+                                    { backgroundColor: colors.card, borderBottomLeftRadius: 4 }
                                 ]}
                             >
                                 {item.reply_to && (
-                                    <View style={[styles.replyContainer, { backgroundColor: colors.backgroundSecondary, borderLeftColor: colors.primary }]}>
+                                    <View style={[styles.replyContainer, { backgroundColor: colors.background, borderLeftColor: colors.primary }]}>
                                         <View style={[styles.replyBar, { backgroundColor: colors.primary }]} />
                                         <View style={{ flex: 1 }}>
                                             <Text numberOfLines={1} style={[styles.replySender, { color: colors.primary }]}>{item.reply_to.sender}</Text>
@@ -147,13 +152,14 @@ export const MessageItemComponent = ({ item, onLongPress, onSwipeReply, onSwipeF
                                 )}
 
                                 {item.file && (
-                                    <View style={{ marginBottom: item.text ? 5 : 0 }}>
+                                    <View style={{ marginBottom: item.text ? 8 : 0 }}>
                                         {item.file_type?.startsWith('image/') ? (
                                             <TouchableOpacity
                                                 onPress={handleMediaPress}
                                                 onLongPress={() => onLongPress(item)}
                                                 delayLongPress={200}
-                                                activeOpacity={0.9}
+                                                activeOpacity={0.95}
+                                                style={styles.mediaContainer}
                                             >
                                                 {getImageSource() && (
                                                     <Image
@@ -167,43 +173,38 @@ export const MessageItemComponent = ({ item, onLongPress, onSwipeReply, onSwipeF
                                         ) : item.file_type?.startsWith('video/') ? (
                                             <TouchableOpacity
                                                 onPress={handleMediaPress}
-                                                style={styles.videoPreview}
+                                                style={[styles.videoPreview, styles.mediaContainer]}
                                                 onLongPress={() => onLongPress(item)}
                                                 delayLongPress={200}
-                                                activeOpacity={0.9}
+                                                activeOpacity={0.95}
                                             >
                                                 <View style={styles.videoThumbnail}>
-                                                    <MaterialCommunityIcons name="play-circle" size={48} color="white" />
+                                                    {/* Better video placeholder */}
+                                                    <View style={[styles.playButtonCircle, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+                                                        <MaterialCommunityIcons name="play" size={24} color="white" />
+                                                    </View>
                                                 </View>
-                                                <View style={styles.fileInfo}>
-                                                    <MaterialCommunityIcons name="video" size={20} color={colors.text} />
-                                                    <Text style={[styles.fileName, { color: colors.text }]} numberOfLines={1}>
-                                                        {item.file_name || 'Video'}
-                                                    </Text>
-                                                </View>
+                                                <LinearGradient
+                                                    colors={['transparent', 'rgba(0,0,0,0.6)']}
+                                                    style={styles.videoInfoOverlay}
+                                                >
+                                                    <Text style={styles.videoDurationText}>0:30</Text> {/* Placeholder duration */}
+                                                </LinearGradient>
                                             </TouchableOpacity>
-                                        ) : item.file_type === 'application/pdf' ? (
-                                            <View style={[styles.documentPreview, { backgroundColor: colors.backgroundSecondary }]}>
-                                                <View style={[styles.pdfIcon, { backgroundColor: colors.primary + '20' }]}>
-                                                    <MaterialCommunityIcons name="file-pdf-box" size={40} color="#E53935" />
-                                                </View>
-                                                <View style={styles.fileInfo}>
-                                                    <Text style={[styles.fileName, { color: colors.text }]} numberOfLines={1}>
-                                                        {item.file_name || 'PDF Document'}
-                                                    </Text>
-                                                    <Text style={[styles.fileType, { color: colors.secondary }]}>PDF</Text>
-                                                </View>
-                                            </View>
                                         ) : (
                                             <View style={[styles.documentPreview, { backgroundColor: colors.backgroundSecondary }]}>
-                                                <View style={[styles.pdfIcon, { backgroundColor: colors.primary + '20' }]}>
-                                                    <MaterialCommunityIcons name="file-document" size={40} color={colors.primary} />
+                                                <View style={[styles.fileIconBubble, { backgroundColor: colors.background }]}>
+                                                    <MaterialCommunityIcons
+                                                        name={item.file_type === 'application/pdf' ? "file-pdf-box" : "file-document-outline"}
+                                                        size={24}
+                                                        color={item.file_type === 'application/pdf' ? "#FF5252" : colors.text}
+                                                    />
                                                 </View>
                                                 <View style={styles.fileInfo}>
                                                     <Text style={[styles.fileName, { color: colors.text }]} numberOfLines={1}>
                                                         {item.file_name || 'Document'}
                                                     </Text>
-                                                    <Text style={[styles.fileType, { color: colors.secondary }]}>
+                                                    <Text style={[styles.fileType, { color: colors.tabIconDefault }]}>
                                                         {item.file_type?.split('/')[1]?.toUpperCase() || 'FILE'}
                                                     </Text>
                                                 </View>
@@ -218,45 +219,48 @@ export const MessageItemComponent = ({ item, onLongPress, onSwipeReply, onSwipeF
                                     </Text>
                                 ) : null}
 
-                                <Text style={[styles.timestamp, { color: colors.tabIconDefault }]}>
-                                    {item.timestamp.toLocaleTimeString([], {
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                    })}
-                                </Text>
+                                <View style={styles.metaRow}>
+                                    <Text style={[styles.timestamp, { color: colors.tabIconDefault }]}>
+                                        {item.timestamp.toLocaleTimeString([], {
+                                            hour: '2-digit',
+                                            minute: '2-digit',
+                                        })}
+                                    </Text>
+                                </View>
                             </View>
                             {reactions.length > 0 && (
-                                <View style={styles.reactionBadge}>
+                                <View style={[styles.reactionBadge, { borderColor: colors.background }]}>
                                     <Text style={{ fontSize: 10 }}>{reactions[0]}</Text>
                                 </View>
                             )}
                         </View>
                     ) : (
-                        <View>
+                        <View style={[styles.bubbleWrapper, { justifyContent: 'flex-end' }]}>
                             <LinearGradient
-                                colors={[colors.primary, colors.secondary]}
+                                colors={[colors.primary, colors.secondary]} // Keep gradient for 'me'
                                 start={{ x: 0, y: 0 }}
                                 end={{ x: 1, y: 1 }}
-                                style={styles.messageBubbleMe}
+                                style={[styles.messageBubbleMe, { borderBottomRightRadius: 4 }]}
                             >
                                 {item.reply_to && (
-                                    <View style={[styles.replyContainer, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+                                    <View style={[styles.replyContainer, { backgroundColor: 'rgba(0,0,0,0.1)', borderLeftColor: 'white' }]}>
                                         <View style={[styles.replyBar, { backgroundColor: 'white' }]} />
                                         <View style={{ flex: 1 }}>
                                             <Text numberOfLines={1} style={[styles.replySender, { color: 'white' }]}>{item.reply_to.sender}</Text>
-                                            <Text numberOfLines={1} style={[styles.replyText, { color: 'white' }]}>{item.reply_to.text}</Text>
+                                            <Text numberOfLines={1} style={[styles.replyText, { color: 'rgba(255,255,255,0.8)' }]}>{item.reply_to.text}</Text>
                                         </View>
                                     </View>
                                 )}
 
                                 {item.file && (
-                                    <View style={{ marginBottom: item.text ? 5 : 0 }}>
+                                    <View style={{ marginBottom: item.text ? 8 : 0 }}>
                                         {item.file_type?.startsWith('image/') ? (
                                             <TouchableOpacity
                                                 onPress={handleMediaPress}
                                                 onLongPress={() => onLongPress(item)}
                                                 delayLongPress={200}
-                                                activeOpacity={0.9}
+                                                activeOpacity={0.95}
+                                                style={styles.mediaContainer}
                                             >
                                                 {getImageSource() && (
                                                     <Image
@@ -270,37 +274,31 @@ export const MessageItemComponent = ({ item, onLongPress, onSwipeReply, onSwipeF
                                         ) : item.file_type?.startsWith('video/') ? (
                                             <TouchableOpacity
                                                 onPress={handleMediaPress}
-                                                style={styles.videoPreview}
+                                                style={[styles.videoPreview, styles.mediaContainer]}
                                                 onLongPress={() => onLongPress(item)}
                                                 delayLongPress={200}
-                                                activeOpacity={0.9}
+                                                activeOpacity={0.95}
                                             >
                                                 <View style={styles.videoThumbnail}>
-                                                    <MaterialCommunityIcons name="play-circle" size={48} color="white" />
+                                                    <View style={[styles.playButtonCircle, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+                                                        <MaterialCommunityIcons name="play" size={24} color="white" />
+                                                    </View>
                                                 </View>
-                                                <View style={styles.fileInfo}>
-                                                    <MaterialCommunityIcons name="video" size={20} color="white" />
-                                                    <Text style={[styles.fileName, { color: "white" }]} numberOfLines={1}>
-                                                        {item.file_name || 'Video'}
-                                                    </Text>
-                                                </View>
+                                                <LinearGradient
+                                                    colors={['transparent', 'rgba(0,0,0,0.6)']}
+                                                    style={styles.videoInfoOverlay}
+                                                >
+                                                    <Text style={styles.videoDurationText}>0:30</Text>
+                                                </LinearGradient>
                                             </TouchableOpacity>
-                                        ) : item.file_type === 'application/pdf' ? (
-                                            <View style={[styles.documentPreview, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-                                                <View style={[styles.pdfIcon, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-                                                    <MaterialCommunityIcons name="file-pdf-box" size={40} color="#FF6B6B" />
-                                                </View>
-                                                <View style={styles.fileInfo}>
-                                                    <Text style={[styles.fileName, { color: "white" }]} numberOfLines={1}>
-                                                        {item.file_name || 'PDF Document'}
-                                                    </Text>
-                                                    <Text style={[styles.fileType, { color: "rgba(255,255,255,0.7)" }]}>PDF</Text>
-                                                </View>
-                                            </View>
                                         ) : (
-                                            <View style={[styles.documentPreview, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-                                                <View style={[styles.pdfIcon, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-                                                    <MaterialCommunityIcons name="file-document" size={40} color="white" />
+                                            <View style={[styles.documentPreview, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
+                                                <View style={[styles.fileIconBubble, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+                                                    <MaterialCommunityIcons
+                                                        name={item.file_type === 'application/pdf' ? "file-pdf-box" : "file-document-outline"}
+                                                        size={24}
+                                                        color="white"
+                                                    />
                                                 </View>
                                                 <View style={styles.fileInfo}>
                                                     <Text style={[styles.fileName, { color: "white" }]} numberOfLines={1}>
@@ -326,7 +324,7 @@ export const MessageItemComponent = ({ item, onLongPress, onSwipeReply, onSwipeF
                                     </Text>
                                 ) : null}
 
-                                <View style={styles.readRow}>
+                                <View style={styles.metaRowMe}>
                                     <Text
                                         style={{
                                             fontSize: 10,
@@ -340,18 +338,18 @@ export const MessageItemComponent = ({ item, onLongPress, onSwipeReply, onSwipeF
                                         })}
                                     </Text>
                                     <MaterialCommunityIcons
-                                        name={item.isRead || item.isDelivered ? 'check-all' : 'check'}
-                                        size={16}
+                                        name={item.isRead ? 'check-all' : (item.isDelivered ? 'check-all' : 'check')} // Assume check-all for delivered too for simplicity if not distinct
+                                        size={14}
                                         color={
                                             item.isRead
-                                                ? '#FFF'
-                                                : 'rgba(255,255,255,0.7)'
+                                                ? '#FFF' // Blue or distinct color if viewed? For white text, keep white
+                                                : 'rgba(255,255,255,0.5)'
                                         }
                                     />
                                 </View>
                             </LinearGradient>
                             {reactions.length > 0 && (
-                                <View style={[styles.reactionBadge, { left: -10, right: undefined }]}>
+                                <View style={[styles.reactionBadge, { left: -6 }]}>
                                     <Text style={{ fontSize: 10 }}>{reactions[0]}</Text>
                                 </View>
                             )}
@@ -360,7 +358,6 @@ export const MessageItemComponent = ({ item, onLongPress, onSwipeReply, onSwipeF
                 </TouchableOpacity>
             </View>
 
-            {/* Full-screen Media Viewer */}
             <MediaViewer
                 visible={viewerVisible}
                 mediaUri={typeof item.file === 'string' ? item.file : (item.file as any)?.uri || null}
@@ -374,148 +371,214 @@ export const MessageItemComponent = ({ item, onLongPress, onSwipeReply, onSwipeF
 const styles = StyleSheet.create({
     swipeLeftAction: {
         justifyContent: 'center',
-        alignItems: 'center',
-        width: 50,
+        alignItems: 'flex-start',
+        paddingLeft: 15,
+        width: 60,
         height: '100%',
     },
     swipeRightAction: {
         justifyContent: 'center',
-        alignItems: 'center',
-        width: 50,
+        alignItems: 'flex-end',
+        paddingRight: 15,
+        width: 60,
         height: '100%',
-        backgroundColor: 'transparent',
     },
     messageContainer: {
-        marginBottom: 12, // Increased spacing
-        maxWidth: '75%', // Maximum width adjustment
+        marginBottom: 8,
+        maxWidth: '100%',
+        paddingHorizontal: 12,
+        flexDirection: 'row',
+        alignItems: 'flex-end',
     },
-    myMessageContainer: { alignSelf: 'flex-end', marginRight: 10 },
-    theirMessageContainer: { alignSelf: 'flex-start', marginLeft: 10 },
+    myMessageContainer: { justifyContent: 'flex-end' },
+    theirMessageContainer: { justifyContent: 'flex-start' },
+
+    avatarContainer: {
+        width: 28,
+        height: 28,
+        marginRight: 8,
+        marginBottom: 2,
+    },
+    avatarStats: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+
+    bubbleWrapper: {
+        position: 'relative',
+        maxWidth: '82%',
+    },
+
     messageBubbleThem: {
-        padding: 14,
-        borderRadius: 24, // Consistent squircle
-        minWidth: 80,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 18,
+        minWidth: 60,
+        shadowColor: "rgba(0,0,0,0.05)",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 1,
+        shadowRadius: 1,
+        elevation: 1,
     },
     messageBubbleMe: {
-        padding: 14,
-        borderRadius: 24, // Consistent squircle
-        minWidth: 80,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 18,
+        minWidth: 60,
         shadowColor: "#000",
-        shadowOffset: {
-            width: 0,
-            height: 2,
-        },
-        shadowOpacity: 0.15,
-        shadowRadius: 3.84,
-        elevation: 5,
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        elevation: 2,
     },
-    messageText: { fontSize: 16, lineHeight: 22 },
-    timestamp: {
-        fontSize: 10,
-        alignSelf: 'flex-end',
-        marginTop: 6,
+    messageText: {
+        fontSize: 15,
+        lineHeight: 20,
     },
-    readRow: {
+    metaRow: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'flex-end',
-        marginTop: 4,
+        marginTop: 2,
+        opacity: 0.7,
     },
+    metaRowMe: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        marginTop: 2,
+    },
+    timestamp: {
+        fontSize: 10,
+    },
+    deletedMessageBubble: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 8,
+        paddingHorizontal: 16,
+        borderRadius: 16,
+    },
+
     reactionBadge: {
         position: 'absolute',
-        bottom: -8,
-        right: -4,
+        bottom: -6,
         backgroundColor: 'white',
         borderRadius: 12,
-        paddingHorizontal: 6,
-        paddingVertical: 3,
+        paddingHorizontal: 5,
+        paddingVertical: 2,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.2,
+        shadowOpacity: 0.15,
         shadowRadius: 1,
         elevation: 2,
-        borderWidth: 1,
-        borderColor: '#f0f0f0'
+        borderWidth: 1.5,
+        borderColor: 'white',
+        minWidth: 20,
+        alignItems: 'center',
+        zIndex: 10,
     },
     replyContainer: {
         flexDirection: 'row',
-        padding: 8,
-        borderRadius: 8,
-        marginBottom: 8,
+        padding: 6,
+        paddingLeft: 8,
+        borderRadius: 6,
+        marginBottom: 6,
         overflow: 'hidden',
-        borderLeftWidth: 3,
+        borderLeftWidth: 2,
     },
     replyBar: {
-        width: 3,
-        height: '100%',
-        marginRight: 8,
-        borderRadius: 3,
+        display: 'none', // Using borderLeft instead for cleaner look
     },
     replySender: {
-        fontWeight: '700',
-        fontSize: 12,
-        marginBottom: 2,
+        fontWeight: '600',
+        fontSize: 11,
+        marginBottom: 1,
     },
     replyText: {
-        fontSize: 12,
-        opacity: 0.9,
+        fontSize: 11,
     },
-    fileContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 5,
+    mediaContainer: {
+        borderRadius: 12,
+        overflow: 'hidden',
+        marginBottom: 4,
     },
     messageImage: {
-        width: 200,
-        height: 200,
-        borderRadius: 8,
-        backgroundColor: 'rgba(0,0,0,0.1)',
+        width: 220,
+        height: 160,
+        borderRadius: 12,
+        backgroundColor: 'rgba(0,0,0,0.05)',
     },
     videoPreview: {
-        width: 200,
-        borderRadius: 8,
+        width: 220,
+        height: 160,
+        borderRadius: 12, // Match image
         overflow: 'hidden',
-    },
-    videoThumbnail: {
-        width: 200,
-        height: 150,
         backgroundColor: '#000',
         justifyContent: 'center',
         alignItems: 'center',
+        position: 'relative'
+    },
+    videoThumbnail: {
+        width: '100%',
+        height: '100%',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    playButtonCircle: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.6)',
+    },
+    videoInfoOverlay: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: 40,
+        justifyContent: 'flex-end',
+        padding: 8,
+    },
+    videoDurationText: {
+        color: 'white',
+        fontSize: 10,
+        fontWeight: 'bold',
     },
     documentPreview: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 12,
-        borderRadius: 8,
-        maxWidth: 250,
+        padding: 8,
+        borderRadius: 10,
+        maxWidth: 240,
     },
-    pdfIcon: {
-        width: 60,
-        height: 60,
-        borderRadius: 8,
+    fileIconBubble: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 12,
-    },
-    fileInfo: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        paddingVertical: 4,
+        marginRight: 10,
     },
     fileName: {
-        fontSize: 14,
+        fontSize: 13,
         fontWeight: '500',
         flex: 1,
     },
     fileType: {
-        fontSize: 11,
+        fontSize: 10,
         fontWeight: '600',
-        marginTop: 2,
+        marginTop: 1,
+    },
+    fileInfo: {
+        flex: 1,
+        justifyContent: 'center',
     },
 });
 
-// Memoize the component to prevent re-renders unless props change
 export const MessageItem = React.memo(MessageItemComponent);
