@@ -5,7 +5,7 @@ import { Text, View } from '@/components/Themed';
 import { useStore } from '@/store';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
+
 
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { getMediaUrl } from '@/utils/media';
@@ -34,9 +34,10 @@ const SettingItem = React.memo(({ icon, title, subtitle, onPress, badge, color, 
         </TouchableOpacity>
     );
 });
+SettingItem.displayName = 'SettingItem';
 export default function SettingsScreen() {
     const router = useRouter();
-    const { colors, isDark } = useAppTheme();
+    const { colors } = useAppTheme();
     const user = useStore(useCallback((state: any) => state.user, []));
     const logout = useStore(useCallback((state: any) => state.logout, []));
     const showAlert = useStore(useCallback((state: any) => state.showAlert, []));

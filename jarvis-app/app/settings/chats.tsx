@@ -14,7 +14,6 @@ export default function ChatsSettingsScreen() {
     const theme = useStore((state) => state.theme);
     const setTheme = useStore((state) => state.setTheme);
     const user = useStore((state) => state.user);
-    const updateSettings = useStore((state) => state.updateSettings);
     const animationsEnabled = useStore((state) => state.animationsEnabled);
     const setAnimationsEnabled = useStore((state) => state.setAnimationsEnabled);
     const showAlert = useStore((state) => state.showAlert);

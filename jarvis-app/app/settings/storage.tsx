@@ -18,7 +18,7 @@ export default function StorageSettingsScreen() {
     const handleToggle = useCallback(async (value: boolean) => {
         try {
             await updateSettings({ storage_auto_download_media: value });
-        } catch (error) { }
+        } catch { }
     }, [updateSettings]);
 
     return (

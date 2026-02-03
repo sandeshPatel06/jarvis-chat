@@ -1,7 +1,6 @@
-import { View, Text, TouchableOpacity, Image, StyleSheet, Alert, ViewStyle } from 'react-native';
+import { View, Text, TouchableOpacity, Image, StyleSheet, ViewStyle } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import * as SMS from 'expo-sms';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { Chat } from '@/types';
 import { useStore } from '@/store';
@@ -34,28 +33,7 @@ export const ChatHeader = ({ chat, typingUser, onOptionsPress, onSMSPress, style
         router.push(`/call/${chat.id}`);
     };
 
-    const handleSMS = async () => {
-        try {
-            const isAvailable = await SMS.isAvailableAsync();
-            if (!isAvailable) {
-                Alert.alert(
-                    'SMS Not Available',
-                    'SMS is not available on this device',
-                    [{ text: 'OK' }]
-                );
-                return;
-            }
 
-            // For now, we'll use a default message. In a real app, you'd get the phone number from chat data
-            await SMS.sendSMSAsync(
-                [], // Empty array will let user enter number
-                `Hi! Let's chat on Jarvis.`
-            );
-        } catch (error) {
-            console.error('SMS error:', error);
-            Alert.alert('Error', 'Failed to open SMS');
-        }
-    };
 
     const avatarUrl = getMediaUrl(chat.avatar);
 

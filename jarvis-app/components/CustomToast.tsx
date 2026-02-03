@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Animated, useColorScheme } from 'react-native';
+import { View, Text, StyleSheet, Animated } from 'react-native';
 import { useStore } from '@/store';
 import { useAppTheme } from '@/hooks/useAppTheme';
 
 const CustomToast = () => {
     const toast = useStore((state) => state.toast);
     const hideToast = useStore((state) => state.hideToast);
-    const { colors, isDark } = useAppTheme();
+    const { colors } = useAppTheme();
 
     const [isVisible, setIsVisible] = useState(false);
     const fadeAnim = useState(new Animated.Value(0))[0];
@@ -33,7 +33,7 @@ const CustomToast = () => {
 
             return () => clearTimeout(timer);
         }
-    }, [toast]);
+    }, [toast, fadeAnim, hideToast]);
 
     if (!isVisible || !toast) return null;
 

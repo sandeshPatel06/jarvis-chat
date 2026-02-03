@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, Text, ActivityIndicator, Alert, Dimensions, Image } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text, ActivityIndicator, Alert, Image } from 'react-native';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
 
 interface ImageEditorProps {
     imageUri: string;
@@ -54,29 +54,7 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ imageUri, onSave, onCa
         }
     };
 
-    const handleCrop = async (aspectRatio: [number, number] | 'free') => {
-        try {
-            setProcessing(true);
 
-            // For free crop, we'll use a default crop action
-            // In a real implementation, you'd show a crop UI
-            const cropAction: ImageManipulator.Action = aspectRatio === 'free'
-                ? { crop: { originX: 0, originY: 0, width: SCREEN_WIDTH, height: SCREEN_WIDTH } }
-                : { crop: { originX: 0, originY: 0, width: SCREEN_WIDTH, height: SCREEN_WIDTH * (aspectRatio[1] / aspectRatio[0]) } };
-
-            const result = await ImageManipulator.manipulateAsync(
-                currentUri,
-                [cropAction],
-                { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
-            );
-            setCurrentUri(result.uri);
-        } catch (error) {
-            console.error('Crop error:', error);
-            Alert.alert('Error', 'Failed to crop image');
-        } finally {
-            setProcessing(false);
-        }
-    };
 
     const handleCompress = async () => {
         try {

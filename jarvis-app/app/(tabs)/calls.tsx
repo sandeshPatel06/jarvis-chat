@@ -2,12 +2,10 @@ import { ScreenWrapper } from '@/components/ScreenWrapper';
 import { Text, View } from '@/components/Themed';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { useStore } from '@/store';
-import { getMediaUrl } from '@/utils/media';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
-import { useRef, useState, useMemo, useEffect, useCallback } from 'react';
-import { FlatList, Image, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { FlatList, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import CallLogItem from '@/components/calls/CallLogItem';
 
 export default function CallsScreen() {
@@ -28,7 +26,7 @@ export default function CallsScreen() {
 
   useEffect(() => {
     fetchCalls();
-  }, []);
+  }, [fetchCalls]);
 
   const handleRefresh = async () => {
     setRefreshing(true);

@@ -30,7 +30,7 @@ export default function LanguageSettingsScreen() {
     const handleSelect = useCallback(async (code: string) => {
         try {
             await updateSettings({ app_language: code });
-        } catch (error) { }
+        } catch { }
     }, [updateSettings]);
 
     return (
@@ -52,7 +52,7 @@ export default function LanguageSettingsScreen() {
                     <SettingCard>
                         <SettingRow
                             title="System Default"
-                            subtitle={systemLanguageName}
+                            subtitle={systemLanguageName || undefined}
                             isSelected={user?.app_language === systemLocale.languageCode}
                             onPress={() => handleSelect(systemLocale.languageCode || 'en')}
                             isLast

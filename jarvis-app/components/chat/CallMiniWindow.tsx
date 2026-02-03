@@ -1,12 +1,12 @@
 import React from 'react';
-import { StyleSheet, View, TouchableOpacity, Text, Dimensions } from 'react-native';
+import { StyleSheet, View, TouchableOpacity, Text } from 'react-native';
 import { RTCView } from 'react-native-webrtc';
 import { useStore } from '@/store';
 import { useRouter, useSegments } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAppTheme } from '@/hooks/useAppTheme';
 
-const { width } = Dimensions.get('window');
+
 const MINI_WINDOW_WIDTH = 120;
 const MINI_WINDOW_HEIGHT = 180;
 

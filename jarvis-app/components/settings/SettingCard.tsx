@@ -8,7 +8,7 @@ interface SettingCardProps {
 }
 
 const SettingCard = memo(({ children, style }: SettingCardProps) => {
-    const { colors, isDark } = useAppTheme();
+    const { colors } = useAppTheme();
 
     return (
         <View style={[
@@ -24,6 +24,8 @@ const SettingCard = memo(({ children, style }: SettingCardProps) => {
         </View>
     );
 });
+
+SettingCard.displayName = 'SettingCard';
 
 const styles = StyleSheet.create({
     card: {

@@ -32,7 +32,7 @@ export default function RestoreSettingsScreen() {
         } finally {
             setLoading(false);
         }
-    }, [token]);
+    }, [token, showAlert]);
 
     useEffect(() => {
         fetchDeletedChats();
@@ -56,10 +56,10 @@ export default function RestoreSettingsScreen() {
             showAlert('Success', 'Selected chats have been restored', [
                 { text: 'OK', onPress: () => router.back() }
             ]);
-        } catch (e) {
+        } catch {
             showAlert('Error', 'Failed to restore chats');
         }
-    }, [selectedChatIds, restoreChats, router]);
+    }, [selectedChatIds, restoreChats, router, showAlert]);
 
     const renderItem = useCallback(({ item }: { item: Chat }) => {
         const isSelected = selectedChatIds.includes(parseInt(item.id));

@@ -1,5 +1,5 @@
 import { Text, View } from '@/components/Themed';
-import Colors from '@/constants/Colors';
+
 import { api } from '@/services/api';
 import { useStore } from '@/store';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -89,7 +89,7 @@ export default function LoginScreen() {
                     </TouchableOpacity>
 
                     <View style={styles.footer}>
-                        <Text style={[styles.footerText, { color: colors.textSecondary }]}>Don't have an account? </Text>
+                        <Text style={[styles.footerText, { color: colors.textSecondary }]}>Don&apos;t have an account? </Text>
                         <Link href="/auth/signup" asChild>
                             <TouchableOpacity>
                                 <Text style={[styles.link, { color: colors.primary }]}>Sign Up</Text>

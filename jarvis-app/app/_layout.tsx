@@ -1,5 +1,5 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { DarkTheme, ThemeProvider } from '@react-navigation/native';
+import { DarkTheme, ThemeProvider, DefaultTheme } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -9,7 +9,7 @@ import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as SystemUI from 'expo-system-ui';
-import { AppState, BackHandler } from 'react-native';
+import { AppState, BackHandler, useColorScheme } from 'react-native';
 
 import Colors from '@/constants/Colors';
 import { useStore } from '@/store';
@@ -18,9 +18,11 @@ import CustomToast from '@/components/CustomToast';
 import CustomAlert from '@/components/CustomAlert';
 import IncomingCallModal from '@/components/IncomingCallModal';
 import { CallMiniWindow } from '@/components/chat/CallMiniWindow';
-import * as Notifications from 'expo-notifications';
 import { api } from '@/services/api';
 import { LockScreen } from '@/components/LockScreen';
+
+
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 
 // Initialize Firebase listeners at module level if needed
 setupNotificationOpenedHandler();
@@ -100,9 +102,6 @@ export default function RootLayout() {
   useEffect(() => {
     // Handle hardware back button for Android
     const backAction = () => {
-      const { callState, setIsMinimized } = useStore.getState();
-      const segments = useStore.getState().activeChatId; // Simplistic check or use router segments if possible
-
       // If we are in a call screen (can check segments or state)
       // This is a bit tricky with Expo Router in a global layout
       // Better to handle inside CallScreen, but user asked for "back our minimize app"
@@ -129,11 +128,6 @@ export default function RootLayout() {
   return <RootLayoutNav />;
 }
 
-import { DefaultTheme } from '@react-navigation/native';
-import { useColorScheme } from 'react-native';
-
-import { KeyboardProvider } from 'react-native-keyboard-controller';
-
 // ...
 
 function RootLayoutNav() {
@@ -151,9 +145,6 @@ function RootLayoutNav() {
     });
   }, []);
 
-  if (appLockEnabled && isLocked) {
-    return <LockScreen onUnlock={() => setIsLocked(false)} />;
-  }
   const { token, hasHydrated, theme: userTheme } = useStore();
   const systemScheme = useColorScheme();
   const segments = useSegments();
@@ -194,7 +185,11 @@ function RootLayoutNav() {
     if (token) {
       requestFirebasePermission();
     }
-  }, [token, segments, hasHydrated]);
+  }, [token, segments, hasHydrated, router]);
+
+  if (appLockEnabled && isLocked) {
+    return <LockScreen onUnlock={() => setIsLocked(false)} />;
+  }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

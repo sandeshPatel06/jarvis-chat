@@ -1,19 +1,13 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Tabs, useRouter } from 'expo-router';
 import React from 'react';
-import { Platform, View, TouchableOpacity } from 'react-native';
+import { View, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useClientOnlyValue } from '@/components/useClientOnlyValue';
 import { useAppTheme } from '@/hooks/useAppTheme';
 
 // You can explore the built-in icon families and icons on the web at https://icons.expo.fyi/
-function TabBarIcon(props: {
-  name: React.ComponentProps<typeof FontAwesome>['name'];
-  color: string;
-}) {
-  return <FontAwesome size={24} style={{ marginBottom: -3 }} {...props} />;
-}
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();

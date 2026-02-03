@@ -19,7 +19,7 @@ export default function HelpSettingsScreen() {
     const handleHelpCenter = useCallback(async () => {
         try {
             await WebBrowser.openBrowserAsync('https://support.jarvis-chat.com');
-        } catch (error) {
+        } catch {
             showAlert('Error', 'Could not open help center. Please try again later.');
         }
     }, [showAlert]);
@@ -33,7 +33,7 @@ export default function HelpSettingsScreen() {
             } else {
                 showAlert('Contact Us', 'Please email us at support@jarvis-chat.com');
             }
-        } catch (e) {
+        } catch {
             showAlert('Contact Us', 'Please email us at support@jarvis-chat.com');
         }
     }, [showAlert]);

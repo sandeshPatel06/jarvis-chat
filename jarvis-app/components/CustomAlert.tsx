@@ -32,7 +32,7 @@ export default function CustomAlert() {
             fadeAnim.setValue(0);
             scaleAnim.setValue(0.9);
         }
-    }, [alert]);
+    }, [alert, fadeAnim, scaleAnim]);
 
     if (!alert) return null;
 

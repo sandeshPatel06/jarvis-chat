@@ -22,7 +22,7 @@ const PulseCircle = ({ delay = 0 }: { delay?: number }) => {
     useEffect(() => {
         scale.value = withDelay(delay, withRepeat(withTiming(2, { duration: 2000 }), -1, false));
         opacity.value = withDelay(delay, withRepeat(withTiming(0, { duration: 2000 }), -1, false));
-    }, []);
+    }, [delay, scale, opacity]);
 
     const animatedStyle = useAnimatedStyle(() => ({
         transform: [{ scale: scale.value }],

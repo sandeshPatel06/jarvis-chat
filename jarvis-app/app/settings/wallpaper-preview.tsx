@@ -1,12 +1,12 @@
 import React from 'react';
-import { View, StyleSheet, Image, TouchableOpacity, Text, Dimensions, Platform } from 'react-native';
+import { View, StyleSheet, Image, TouchableOpacity, Text } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ScreenWrapper } from '@/components/ScreenWrapper';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { useStore } from '@/store';
 import { ChatHeader, MessageItem } from '@/components/chat';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
+
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 
 // Dummy Data

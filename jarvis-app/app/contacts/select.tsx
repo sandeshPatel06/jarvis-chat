@@ -9,7 +9,7 @@ import * as Contacts from 'expo-contacts';
 import * as SMS from 'expo-sms';
 import { useRouter, Stack } from 'expo-router';
 import React, { useEffect, useState, useCallback } from 'react';
-import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
+import { ActivityIndicator, FlatList, Image, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
 import { getMediaUrl } from '@/utils/media';
 import { formatLastSeen } from '@/utils/date';
 
@@ -28,25 +28,15 @@ export default function SelectContactScreen() {
     const router = useRouter();
     const token = useStore(useCallback((state: any) => state.token, []));
     const showAlert = useStore(useCallback((state: any) => state.showAlert, []));
-    const { colors, isDark } = useAppTheme();
+    const { colors } = useAppTheme();
     const [permissionGranted, setPermissionGranted] = useState(false);
     const [contacts, setContacts] = useState<Contact[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
 
-    useEffect(() => {
-        (async () => {
-            const { status } = await Contacts.requestPermissionsAsync();
-            if (status === 'granted') {
-                setPermissionGranted(true);
-                loadContacts();
-            } else {
-                setLoading(false);
-            }
-        })();
-    }, []);
 
-    const loadContacts = async () => {
+
+    const loadContacts = useCallback(async () => {
         try {
             const { data } = await Contacts.getContactsAsync({
                 fields: [Contacts.Fields.PhoneNumbers, Contacts.Fields.Name],
@@ -127,7 +117,19 @@ export default function SelectContactScreen() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [token]);
+
+    useEffect(() => {
+        (async () => {
+            const { status } = await Contacts.requestPermissionsAsync();
+            if (status === 'granted') {
+                setPermissionGranted(true);
+                loadContacts();
+            } else {
+                setLoading(false);
+            }
+        })();
+    }, [loadContacts]);
 
     const handleSelectContact = useCallback(async (contact: Contact) => {
         if (!token || !contact.has_account) return;
@@ -150,7 +152,7 @@ export default function SelectContactScreen() {
         } finally {
             setLoading(false);
         }
-    }, [token, router]);
+    }, [token, router, showAlert]);
 
     const handleInvite = async (contact: Contact) => {
         try {

@@ -4,7 +4,7 @@ import { useStore } from '@/store';
 import { Message } from '@/types';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
     FlatList,
     Keyboard,
@@ -22,10 +22,10 @@ import {
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenWrapper } from '@/components/ScreenWrapper';
-import { ChatHeader, ChatInput, MessageItem, ForwardMessageModal, MediaViewer } from '@/components/chat';
+import { ChatHeader, ChatInput, MessageItem, ForwardMessageModal } from '@/components/chat';
 import * as Clipboard from 'expo-clipboard';
 import * as MediaLibrary from 'expo-media-library';
-import * as FileSystem from 'expo-file-system';
+import { cacheDirectory, documentDirectory, downloadAsync } from 'expo-file-system';
 import { getMediaUrl } from '@/utils/media';
 
 export default function ChatDetailScreen() {
@@ -84,7 +84,7 @@ export default function ChatDetailScreen() {
         return () => {
             useStore.getState().setActiveChat(null);
         };
-    }, [id]);
+    }, [id, fetchMessages, connectWebSocket]);
 
     useEffect(() => {
         const show = Keyboard.addListener('keyboardDidShow', () => {
@@ -113,7 +113,7 @@ export default function ChatDetailScreen() {
                 }
             });
         }
-    }, [chat?.messages, markRead]);
+    }, [chat?.messages, markRead, chat?.id]);
 
 
 
@@ -260,8 +260,9 @@ export default function ChatDetailScreen() {
                 uriToSave = fullUrl;
             } else {
                 // @ts-ignore
-                const fileUri = FileSystem.cacheDirectory + 'temp_media_' + Date.now() + ext;
-                const downloadResult = await FileSystem.downloadAsync(fullUrl, fileUri);
+
+                const fileUri = (cacheDirectory || documentDirectory) + 'temp_media_' + Date.now() + ext;
+                const downloadResult = await downloadAsync(fullUrl, fileUri);
                 if (downloadResult.status !== 200) throw new Error('Download status: ' + downloadResult.status);
                 uriToSave = downloadResult.uri;
             }
@@ -295,14 +296,14 @@ export default function ChatDetailScreen() {
         );
     }, [chat, showAlert, deleteChat, router]);
 
-    const handleSwipeReply = (message: Message) => {
+    const handleSwipeReply = useCallback((message: Message) => {
         setReplyingToMessage(message);
-    };
+    }, []);
 
-    const handleSwipeForward = (message: Message) => {
+    const handleSwipeForward = useCallback((message: Message) => {
         setMessageToForward(message);
         setForwardModalVisible(true);
-    };
+    }, []);
 
     const handleForwardSubmit = async (chatIds: string[]) => {
         if (messageToForward) {
@@ -427,14 +428,7 @@ export default function ChatDetailScreen() {
                                             {
                                                 text: 'Delete',
                                                 style: 'destructive',
-                                                onPress: () => {
-                                                    import('@/store').then(({ useStore }) => {
-                                                        useStore.getState().deleteChat(chat.id);
-                                                    });
-                                                    import('expo-router').then(({ useRouter }) => {
-                                                        useRouter().back();
-                                                    });
-                                                },
+                                                onPress: handleDeleteChat,
                                             },
                                         ]
                                     );

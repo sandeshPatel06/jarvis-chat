@@ -7,6 +7,8 @@ import { Message } from '@/types';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { MediaViewer } from './MediaViewer';
 
+import { getMediaUrl } from '@/utils/media';
+
 interface MessageItemProps {
     item: Message;
     onLongPress: (message: Message) => void;
@@ -15,7 +17,7 @@ interface MessageItemProps {
 }
 
 export const MessageItemComponent = ({ item, onLongPress, onSwipeReply, onSwipeForward }: MessageItemProps) => {
-    const { colors, isDark } = useAppTheme();
+    const { colors } = useAppTheme();
     const isMe = item.sender === 'me';
     const reactions = item.reactions || [];
     const swipeableRef = React.useRef<Swipeable>(null);
@@ -45,7 +47,6 @@ export const MessageItemComponent = ({ item, onLongPress, onSwipeReply, onSwipeF
     const getImageSource = () => {
         if (!item.file || imageError) {
             if ((item as any).remoteFile) {
-                const { getMediaUrl } = require('@/utils/media');
                 const remoteUrl = getMediaUrl((item as any).remoteFile);
                 if (remoteUrl) return { uri: remoteUrl };
             }
@@ -84,7 +85,6 @@ export const MessageItemComponent = ({ item, onLongPress, onSwipeReply, onSwipeF
     };
 
     if (item.deleted_at) {
-        const deletedDate = new Date(item.deleted_at);
         return (
             <View style={[styles.messageContainer, { alignSelf: 'center', marginVertical: 8 }]}>
                 <View style={[styles.deletedMessageBubble, { backgroundColor: colors.backgroundSecondary }]}>

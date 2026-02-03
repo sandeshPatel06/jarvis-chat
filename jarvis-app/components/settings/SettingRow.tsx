@@ -31,7 +31,7 @@ const SettingRow = memo(({
     isSelected,
     isLast,
     showChevron = true
-}: any) => {
+}: SettingRowProps) => {
     const { colors, isDark } = useAppTheme();
 
     const Content = (
@@ -92,6 +92,8 @@ const SettingRow = memo(({
         </TouchableOpacity>
     );
 });
+
+SettingRow.displayName = 'SettingRow';
 
 const styles = StyleSheet.create({
     touchable: {

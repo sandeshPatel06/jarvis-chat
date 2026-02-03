@@ -10,7 +10,7 @@ import SettingRow from '@/components/settings/SettingRow';
 import SettingCard from '@/components/settings/SettingCard';
 
 export default function AccountSettingsScreen() {
-    const { colors, isDark } = useAppTheme();
+    const { colors } = useAppTheme();
     const user = useStore((state) => state.user);
     const updateSettings = useStore((state) => state.updateSettings);
     const deleteAccount = useStore((state) => state.deleteAccount);
@@ -20,13 +20,13 @@ export default function AccountSettingsScreen() {
     const handleToggleSecurity = useCallback(async (value: boolean) => {
         try {
             await updateSettings({ security_notifications_enabled: value });
-        } catch (e) { }
+        } catch { }
     }, [updateSettings]);
 
     const handleToggleTwoStep = useCallback(async (value: boolean) => {
         try {
             await updateSettings({ two_step_verification_enabled: value });
-        } catch (e) { }
+        } catch { }
     }, [updateSettings]);
 
     const handleDeleteAccount = useCallback(() => {
@@ -42,7 +42,7 @@ export default function AccountSettingsScreen() {
                         try {
                             await deleteAccount();
                             router.replace('/auth/login');
-                        } catch (e) { }
+                        } catch { }
                     }
                 }
             ]

@@ -33,11 +33,9 @@ export default function PeopleScreen() {
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
 
-    useEffect(() => {
-        fetchContacts();
-    }, []);
 
-    const fetchContacts = async () => {
+
+    const fetchContacts = useCallback(async () => {
         try {
             setLoading(true);
 
@@ -126,12 +124,15 @@ export default function PeopleScreen() {
             setContacts(mappedContacts);
         } catch (error) {
             console.error('Failed to fetch contacts:', error);
-            console.error('Failed to fetch contacts:', error);
             showAlert('Error', 'Failed to load contacts');
         } finally {
             setLoading(false);
         }
-    };
+    }, [token, showAlert]);
+
+    useEffect(() => {
+        fetchContacts();
+    }, [fetchContacts]);
 
     const handleInvite = async (contact: Contact) => {
         try {

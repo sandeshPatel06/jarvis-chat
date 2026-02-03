@@ -7,7 +7,6 @@ import * as ImagePicker from 'expo-image-picker';
 import { getInfoAsync } from 'expo-file-system/legacy';
 import Constants from 'expo-constants';
 import { useAppTheme } from '@/hooks/useAppTheme';
-import { api } from '@/services/api';
 import { useStore } from '@/store';
 import { Message } from '@/types';
 import * as Haptics from 'expo-haptics';
@@ -486,7 +485,11 @@ export const ChatInput = ({
                 <TouchableOpacity
                     onPress={() => {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                        selectedFile ? handleSendFile() : handleSend();
+                        if (selectedFile) {
+                            handleSendFile();
+                        } else {
+                            handleSend();
+                        }
                     }}
                     disabled={!selectedFile && !text.trim()}
                     style={styles.sendButtonContainer}

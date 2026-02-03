@@ -1,18 +1,15 @@
 import { ScreenWrapper } from '@/components/ScreenWrapper';
 import { Text, View } from '@/components/Themed';
-import Colors from '@/constants/Colors';
 import { useStore } from '@/store';
 import { Chat } from '@/types';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { FlatList, Image, Pressable, StyleSheet, TextInput, TouchableOpacity, LayoutAnimation, Platform } from 'react-native';
+import { useEffect, useState, useCallback, useMemo } from 'react';
+import { FlatList, StyleSheet, TextInput, TouchableOpacity, LayoutAnimation, Platform } from 'react-native';
 
 import { useAppTheme } from '@/hooks/useAppTheme';
-import { getMediaUrl } from '@/utils/media';
 import ChatItem from '@/components/chat/ChatItem';
-import { useCallback, useMemo } from 'react';
 
 export default function ChatsScreen() {
   const router = useRouter();
@@ -62,7 +59,7 @@ export default function ChatsScreen() {
       connectWebSocket();
       fetchChats();
     }
-  }, [user]);
+  }, [user, connectWebSocket, fetchChats]);
 
   const formatTime = useCallback((date: Date) => {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });

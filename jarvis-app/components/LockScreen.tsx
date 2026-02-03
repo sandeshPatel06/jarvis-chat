@@ -1,44 +1,25 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Vibration } from 'react-native';
 import * as LocalAuthentication from 'expo-local-authentication';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAppTheme } from '@/hooks/useAppTheme';
 
+const MASTER_PIN = '0707';
+
 export const LockScreen: React.FC<{ onUnlock: () => void }> = ({ onUnlock }) => {
     const { colors } = useAppTheme();
-    const [authenticating, setAuthenticating] = useState(false);
+    const [pin, setPin] = useState('');
+    const [error, setError] = useState(false);
 
-    useEffect(() => {
-        // Auto-trigger authentication on mount
-        handleAuthenticate();
-    }, []);
-
-    const handleAuthenticate = async () => {
+    const handleAuthenticate = useCallback(async () => {
         try {
-            setAuthenticating(true);
-
             const hasHardware = await LocalAuthentication.hasHardwareAsync();
-            if (!hasHardware) {
-                Alert.alert('Not Supported', 'Biometric authentication is not available on this device');
-                onUnlock(); // Unlock anyway
-                return;
-            }
+            if (!hasHardware) return;
 
             const isEnrolled = await LocalAuthentication.isEnrolledAsync();
-            if (!isEnrolled) {
-                Alert.alert(
-                    'Not Enrolled',
-                    'No biometric data found. Please set up biometric authentication in your device settings.',
-                    [
-                        {
-                            text: 'Unlock Anyway',
-                            onPress: onUnlock,
-                        },
-                    ]
-                );
-                return;
-            }
+            if (!isEnrolled) return;
 
             const result = await LocalAuthentication.authenticateAsync({
                 promptMessage: 'Unlock Jarvis Chat',
@@ -48,14 +29,39 @@ export const LockScreen: React.FC<{ onUnlock: () => void }> = ({ onUnlock }) => 
 
             if (result.success) {
                 onUnlock();
-            } else {
-                Alert.alert('Authentication Failed', 'Please try again');
             }
-        } catch (error) {
-            console.error('Authentication error:', error);
-            Alert.alert('Error', 'Authentication failed');
-        } finally {
-            setAuthenticating(false);
+        } catch (authError) {
+            console.error('Authentication error:', authError);
+        }
+    }, [onUnlock]);
+
+    useEffect(() => {
+        // Auto-trigger authentication on mount
+        handleAuthenticate();
+    }, [handleAuthenticate]);
+
+    const handlePinPress = (value: string) => {
+        if (error) setError(false);
+        if (value === 'backspace') {
+            setPin(prev => prev.slice(0, -1));
+            return;
+        }
+
+        if (pin.length < 4) {
+            const newPin = pin + value;
+            setPin(newPin);
+            if (newPin.length === 4) {
+                if (newPin === MASTER_PIN) {
+                    onUnlock();
+                } else {
+                    setError(true);
+                    Vibration.vibrate();
+                    setTimeout(() => {
+                        setPin('');
+                        setError(false);
+                    }, 500);
+                }
+            }
         }
     };
 
@@ -66,28 +72,75 @@ export const LockScreen: React.FC<{ onUnlock: () => void }> = ({ onUnlock }) => 
                 style={styles.gradient}
             >
                 <View style={styles.content}>
-                    <View style={[styles.iconContainer, { backgroundColor: colors.card }]}>
-                        <FontAwesome name="lock" size={60} color={colors.primary} />
+                    <View style={[styles.iconContainer, { backgroundColor: colors.card, borderColor: error ? colors.error : 'transparent', borderWidth: error ? 2 : 0 }]}>
+                        <FontAwesome name="lock" size={40} color={error ? colors.error : colors.primary} />
                     </View>
 
                     <Text style={[styles.title, { color: colors.text }]}>
-                        Jarvis Chat is Locked
+                        Jarvis Chat Locked
                     </Text>
 
-                    <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                        Authenticate to continue
-                    </Text>
+                    {/* PIN Dots */}
+                    <View style={styles.pinContainer}>
+                        {[...Array(4)].map((_, i) => (
+                            <View
+                                key={i}
+                                style={[
+                                    styles.pinDot,
+                                    {
+                                        backgroundColor: i < pin.length ? colors.primary : colors.border,
+                                        borderColor: error ? colors.error : colors.primary,
+                                    }
+                                ]}
+                            />
+                        ))}
+                    </View>
 
-                    <TouchableOpacity
-                        style={[styles.button, { backgroundColor: colors.primary }]}
-                        onPress={handleAuthenticate}
-                        disabled={authenticating}
-                    >
-                        <FontAwesome name="hand-o-up" size={24} color="#fff" style={styles.buttonIcon} />
-                        <Text style={styles.buttonText}>
-                            {authenticating ? 'Authenticating...' : 'Unlock'}
-                        </Text>
-                    </TouchableOpacity>
+                    {/* Keypad */}
+                    <View style={styles.keypad}>
+                        {[
+                            ['1', '2', '3'],
+                            ['4', '5', '6'],
+                            ['7', '8', '9'],
+                            ['fingers', '0', 'backspace']
+                        ].map((row, rowIndex) => (
+                            <View key={rowIndex} style={styles.keypadRow}>
+                                {row.map((item) => {
+                                    if (item === 'fingers') {
+                                        return (
+                                            <TouchableOpacity
+                                                key={item}
+                                                style={styles.keypadButton}
+                                                onPress={handleAuthenticate}
+                                            >
+                                                <MaterialCommunityIcons name="fingerprint" size={28} color={colors.primary} />
+                                            </TouchableOpacity>
+                                        );
+                                    }
+                                    if (item === 'backspace') {
+                                        return (
+                                            <TouchableOpacity
+                                                key={item}
+                                                style={styles.keypadButton}
+                                                onPress={() => handlePinPress('backspace')}
+                                            >
+                                                <MaterialCommunityIcons name="backspace-outline" size={24} color={colors.text} />
+                                            </TouchableOpacity>
+                                        );
+                                    }
+                                    return (
+                                        <TouchableOpacity
+                                            key={item}
+                                            style={styles.keypadButton}
+                                            onPress={() => handlePinPress(item)}
+                                        >
+                                            <Text style={[styles.keypadText, { color: colors.text }]}>{item}</Text>
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </View>
+                        ))}
+                    </View>
                 </View>
             </LinearGradient>
         </View>
@@ -106,49 +159,58 @@ const styles = StyleSheet.create({
     content: {
         alignItems: 'center',
         padding: 20,
+        width: '100%',
+        maxWidth: 400,
     },
     iconContainer: {
-        width: 120,
-        height: 120,
-        borderRadius: 60,
+        width: 80,
+        height: 80,
+        borderRadius: 40,
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 30,
+        marginBottom: 20,
         elevation: 5,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.25,
+        shadowOpacity: 0.1,
         shadowRadius: 3.84,
     },
     title: {
-        fontSize: 24,
+        fontSize: 20,
         fontWeight: '700',
-        marginBottom: 10,
+        marginBottom: 30,
         textAlign: 'center',
     },
-    subtitle: {
-        fontSize: 16,
-        marginBottom: 40,
-        textAlign: 'center',
-    },
-    button: {
+    pinContainer: {
         flexDirection: 'row',
+        marginBottom: 40,
+        gap: 15,
+    },
+    pinDot: {
+        width: 16,
+        height: 16,
+        borderRadius: 8,
+        borderWidth: 1,
+    },
+    keypad: {
+        width: '100%',
+        paddingHorizontal: 20,
+    },
+    keypadRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 20,
+    },
+    keypadButton: {
+        width: 70,
+        height: 70,
+        borderRadius: 35,
+        justifyContent: 'center',
         alignItems: 'center',
-        paddingVertical: 15,
-        paddingHorizontal: 30,
-        borderRadius: 25,
-        elevation: 3,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 3.84,
+        backgroundColor: 'rgba(255,255,255,0.1)', // Subtle background
     },
-    buttonIcon: {
-        marginRight: 10,
-    },
-    buttonText: {
-        color: '#fff',
-        fontSize: 18,
-        fontWeight: '600',
+    keypadText: {
+        fontSize: 28,
+        fontWeight: '500',
     },
 });

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Modal, TouchableOpacity, StyleSheet, FlatList, Pressable } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, StyleSheet, FlatList } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useAppTheme } from '@/hooks/useAppTheme';

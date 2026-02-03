@@ -93,7 +93,9 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({ visible, mediaUri, med
             if (mediaUri.startsWith('file://')) {
                 uriToSave = mediaUri;
             } else {
-                const fileUri = FileSystem.documentDirectory + 'temp_media_' + Date.now() + ext;
+                // @ts-ignore
+                // eslint-disable-next-line import/namespace
+                const fileUri = FileSystem.cacheDirectory + 'temp_media_' + Date.now() + ext;
                 const downloadResult = await FileSystem.downloadAsync(mediaUri, fileUri);
 
                 if (downloadResult.status !== 200) {

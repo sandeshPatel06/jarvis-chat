@@ -1,6 +1,6 @@
 import { useAppTheme } from '@/hooks/useAppTheme';
 import React, { useEffect } from 'react';
-import { StyleSheet, ViewStyle, View, Platform, LayoutAnimation, UIManager } from 'react-native';
+import { ViewStyle, View, Platform, LayoutAnimation, UIManager } from 'react-native';
 import { Edge, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStore } from '@/store';
 
@@ -55,8 +55,4 @@ export const ScreenWrapper: React.FC<ScreenWrapperProps> = ({
     );
 };
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
-});
+

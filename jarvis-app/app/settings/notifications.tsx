@@ -18,7 +18,7 @@ export default function NotificationsSettingsScreen() {
     const handleToggle = useCallback(async (field: string, value: boolean) => {
         try {
             await updateSettings({ [field]: value });
-        } catch (error) { }
+        } catch { }
     }, [updateSettings]);
 
     return (

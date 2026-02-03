@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, ScrollView, Image, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ScreenWrapper } from '@/components/ScreenWrapper';

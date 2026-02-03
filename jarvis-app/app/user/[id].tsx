@@ -41,7 +41,7 @@ export default function UserProfileScreen() {
                 await blockUser(userId);
                 showToast('success', 'User Blocked', `${userProfile?.username} has been blocked.`);
             }
-        } catch (e) {
+        } catch {
             showToast('error', 'Error', 'Failed to update block status');
         }
     };
@@ -72,7 +72,7 @@ export default function UserProfileScreen() {
         };
 
         fetchUserProfile();
-    }, [id, token]);
+    }, [id, token, fetchBlockedUsers, showToast]);
 
     // Find the chat with this user to navigate back to it
     const chat = chats.find((c) => c.user_id === parseInt(id));

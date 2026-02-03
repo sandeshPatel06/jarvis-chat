@@ -1,5 +1,4 @@
 import { ScreenWrapper } from '@/components/ScreenWrapper';
-import { useAppTheme } from '@/hooks/useAppTheme';
 import { webrtcService } from '@/services/webrtc';
 import { useStore } from '@/store';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -12,8 +11,6 @@ import { RTCView } from 'react-native-webrtc';
 export default function CallScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
     const router = useRouter();
-    const { colors } = useAppTheme();
-
     // Granular selectors to isolate re-renders
     const localStream = useStore((state: any) => state.callState.localStream);
     const remoteStream = useStore((state: any) => state.callState.remoteStream);
@@ -25,7 +22,6 @@ export default function CallScreen() {
 
     const [isMuted, setIsMuted] = useState(false);
     const [isVideoEnabled, setIsVideoEnabled] = useState(true);
-    const [isFrontCamera, setIsFrontCamera] = useState(true);
     const [isSpeakerOn, setIsSpeakerOn] = useState(true);
     const [isEnding, setIsEnding] = useState(false);
 
@@ -69,7 +65,7 @@ export default function CallScreen() {
             }, 1500);
             return () => clearTimeout(timer);
         }
-    }, [isCalling]);
+    }, [isCalling, isEnding, router]);
 
     const handleEndCall = useCallback(() => {
         setIsEnding(true);
@@ -97,7 +93,6 @@ export default function CallScreen() {
 
     const switchCamera = useCallback(() => {
         webrtcService.switchCamera();
-        setIsFrontCamera(prev => !prev);
     }, []);
 
     const toggleSpeaker = useCallback(() => {
