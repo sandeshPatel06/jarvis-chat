@@ -25,7 +25,7 @@ import { ScreenWrapper } from '@/components/ScreenWrapper';
 import { ChatHeader, ChatInput, MessageItem, ForwardMessageModal } from '@/components/chat';
 import * as Clipboard from 'expo-clipboard';
 import * as MediaLibrary from 'expo-media-library';
-import { cacheDirectory, documentDirectory, downloadAsync } from 'expo-file-system';
+import { cacheDirectory, documentDirectory, downloadAsync } from 'expo-file-system/legacy';
 import { getMediaUrl } from '@/utils/media';
 
 export default function ChatDetailScreen() {

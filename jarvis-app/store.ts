@@ -264,11 +264,12 @@ export const useStore = create<AppState>()(
                         playRingtone(false);
 
                         // Configure audio for voice call (recording allowed)
+                        // Configure audio for voice call (recording allowed)
                         await Audio.setAudioModeAsync({
                             playsInSilentMode: true,
                             allowsRecording: true,
                             interruptionMode: 'doNotMix',
-                            shouldRouteThroughEarpiece: false,
+                            shouldRouteThroughEarpiece: !isVideo, // Earpiece for voice, Speaker for video
                             shouldPlayInBackground: true,
                         });
 
@@ -608,6 +609,8 @@ export const useStore = create<AppState>()(
                             return;
                         }
 
+                        stopRingtone(); // Stop ringing when call is answered
+
 
                         await webrtcService.setRemoteDescription(message.answer);
 
@@ -661,7 +664,6 @@ export const useStore = create<AppState>()(
                         }
                     }
                 },
-
                 setIsMinimized: (isMinimized: boolean) => set((state) => ({
                     callState: { ...state.callState, isMinimized }
                 })),
@@ -1012,11 +1014,15 @@ export const useStore = create<AppState>()(
                                 return {
                                     ...chat,
                                     messages: newMessages,
-                                    lastMessage: message.text,
+                                    lastMessage: message.text || (message.file ? 'Attachment' : ''),
                                     lastMessageTime: new Date(message.timestamp)
                                 };
                             }
                             return chat;
+                        }).sort((a, b) => {
+                            const timeA = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
+                            const timeB = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
+                            return timeB - timeA;
                         })
                     };
                 }),

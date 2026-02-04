@@ -144,7 +144,7 @@ export default function SelectContactScreen() {
         try {
             setLoading(true);
             const conversation = await api.chat.createConversation(token, contact.username);
-            useStore.getState().fetchChats();
+            await useStore.getState().fetchChats();
             router.replace(`/chat/${conversation.id}`);
         } catch (error) {
             console.error(error);

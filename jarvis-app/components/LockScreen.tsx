@@ -5,6 +5,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAppTheme } from '@/hooks/useAppTheme';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const MASTER_PIN = '0707';
 
@@ -51,16 +52,19 @@ export const LockScreen: React.FC<{ onUnlock: () => void }> = ({ onUnlock }) => 
             const newPin = pin + value;
             setPin(newPin);
             if (newPin.length === 4) {
-                if (newPin === MASTER_PIN) {
-                    onUnlock();
-                } else {
-                    setError(true);
-                    Vibration.vibrate();
-                    setTimeout(() => {
-                        setPin('');
-                        setError(false);
-                    }, 500);
-                }
+                // Check against master PIN or stored user PIN
+                AsyncStorage.getItem('userPin').then((storedPin) => {
+                    if (newPin === MASTER_PIN || (storedPin && newPin === storedPin)) {
+                        onUnlock();
+                    } else {
+                        setError(true);
+                        Vibration.vibrate();
+                        setTimeout(() => {
+                            setPin('');
+                            setError(false);
+                        }, 500);
+                    }
+                });
             }
         }
     };

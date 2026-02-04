@@ -94,8 +94,18 @@ export default function AppLockSettingsScreen() {
                         switchValue={isAppLockEnabled}
                         onSwitchChange={toggleAppLock}
                         color="#4FACFE"
-                        isLast
                     />
+                    {isAppLockEnabled && (
+                        <SettingRow
+                            title="Set / Change PIN"
+                            icon="key"
+                            onPress={() => {
+                                router.push('/settings/change-pin');
+                            }}
+                            color="#F5A623"
+                            isLast
+                        />
+                    )}
                 </SettingCard>
 
                 {!isSupported && (

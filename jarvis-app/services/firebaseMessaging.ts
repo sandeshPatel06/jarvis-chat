@@ -1,21 +1,22 @@
-import { getApp, getApps, initializeApp } from '@react-native-firebase/app';
+import { getApp, getApps } from '@react-native-firebase/app';
 import {
     getMessaging,
     setBackgroundMessageHandler,
-    onMessage,
     onNotificationOpenedApp,
+    onMessage,
     getInitialNotification,
-    requestPermission,
-    getToken,
     onTokenRefresh,
-    AuthorizationStatus
+    requestPermission,
+    AuthorizationStatus,
+    getToken
 } from '@react-native-firebase/messaging';
-import notifee, { AndroidImportance, AndroidVisibility, EventType, AndroidStyle } from '@notifee/react-native';
+import notifee, { AndroidImportance, AndroidVisibility, AndroidStyle, EventType } from '@notifee/react-native';
+
 import { handleIncomingCallFCM } from '@/helper/backgroundCallHelper';
 import { registerForPushNotificationsAsync } from '../utils/notifications';
+import { getMediaUrl } from '@/utils/media';
 import { api } from './api';
 import { useStore } from '@/store';
-import { getMediaUrl } from '@/utils/media';
 
 // ============================================================================
 // CENTRALIZED NOTIFICATION HANDLER
@@ -29,16 +30,22 @@ async function handleRemoteMessage(remoteMessage: any, context: 'foreground' | '
 
         // 1. Handle Incoming Call
         if (data?.type === 'incoming_call') {
+            console.log(`[Firebase ${context}] 📞 Incoming call detected`);
+
             const fcmData = {
                 type: data.type,
                 callUUID: data.callUUID || data.callUUID,
                 callerId: data.handle || data.callerId || 'Unknown',
                 callerName: data.callerName || data.caller_name || 'Unknown',
             };
+
             await handleIncomingCallFCM(fcmData);
+            console.log(`[Firebase ${context}] ✅ Call handled successfully`);
         }
         // 2. Handle New Message
         else if (data?.type === 'message' || data?.conversation_id) {
+            console.log(`[Firebase ${context}] 💬 New message detected`);
+
             const channelId = await notifee.createChannel({
                 id: 'messages',
                 name: 'Messages',
@@ -103,51 +110,70 @@ async function handleRemoteMessage(remoteMessage: any, context: 'foreground' | '
                     ],
                 },
             });
+            console.log(`[Firebase ${context}] ✅ Message notification displayed`);
+        } else {
+            console.log(`[Firebase ${context}] ⚠️ Unknown notification type or missing data`);
         }
     } catch (error) {
-        console.error(`[Firebase ${context}] ❌ Error handling message:`, error);
+        console.error(`[Firebase ${context}] ❌ Error handling ${context} message:`, error);
     }
 }
 
+/**
+ * Firebase Cloud Messaging Setup
+ */
+
 // Initialize Firebase if not already initialized
 if (getApps().length === 0) {
-    // initializeApp();
+    // initializeApp(); // Usually handled by auto-init, but kept for reference
 }
 
-const firebaseMessaging = getMessaging();
+const app = getApp();
+const messaging = getMessaging(app);
 
 // ============================================================================
-// BACKGROUND MESSAGE HANDLER
+// BACKGROUND MESSAGE HANDLER (HEADLESS TASK)
 // ============================================================================
-setBackgroundMessageHandler(firebaseMessaging, async (remoteMessage) => {
+setBackgroundMessageHandler(messaging, async (remoteMessage) => {
     await handleRemoteMessage(remoteMessage, 'background');
 });
+
+console.log('[Firebase] ✅ Background message handler registered (headless task)');
+
 
 // ============================================================================
 // FOREGROUND MESSAGE HANDLER
 // ============================================================================
-export const setupForegroundHandler = () => {
-    return onMessage(firebaseMessaging, async (remoteMessage) => {
-        await handleRemoteMessage(remoteMessage, 'foreground');
-    });
-};
+onMessage(messaging, async (remoteMessage) => {
+    await handleRemoteMessage(remoteMessage, 'foreground');
+});
+
+console.log('[Firebase] ✅ Foreground message handler registered');
 
 // ============================================================================
 // NOTIFICATION OPENED HANDLER
 // ============================================================================
-export const setupNotificationOpenedHandler = () => {
-    onNotificationOpenedApp(firebaseMessaging, (remoteMessage) => {
-        console.log('[Firebase] 📱 Notification opened app from background:', remoteMessage);
-    });
+onNotificationOpenedApp(messaging, (remoteMessage) => {
+    const data = remoteMessage.data;
+    console.log('[Firebase] 📱 Notification opened app from background:', remoteMessage);
 
-    getInitialNotification(firebaseMessaging).then((remoteMessage) => {
-        if (remoteMessage) {
-            console.log('[Firebase] 📱 App opened from killed state by notification:', remoteMessage);
-        }
-    });
-};
+    if (data?.type === 'incoming_call') {
+        console.log('[Firebase] User tapped incoming call notification');
+    } else if (data?.type === 'message' || data?.conversation_id) {
+        // Router navigation should be handled by the specialized listener or root layout
+        console.log('[Firebase] User tapped message notification');
+    }
+});
 
-// Handle Notifee Background Events (Reply, etc.)
+getInitialNotification(messaging).then((remoteMessage) => {
+    if (remoteMessage) {
+        console.log('[Firebase] 📱 App opened from killed state by notification:', remoteMessage);
+    }
+});
+
+// ============================================================================
+// NOTIFEE BACKGROUND EVENTS (Reply/Mark Read)
+// ============================================================================
 notifee.onBackgroundEvent(async ({ type, detail }) => {
     const { notification, pressAction, input } = detail;
 
@@ -176,21 +202,7 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
 
             if (conversationId && messageId) {
                 console.log(`[Notifee] Marking as read: ${messageId} in ${conversationId}`);
-                try {
-                    const state = useStore.getState();
-                    const token = state.token;
-                    if (token) {
-                        // We might need a specific mark_read endpoint or call useStore action
-                        // For background, usually calling API directly is safer if store isn't fully hydrated
-                        // or if it's a headless task.
-                        // Assuming markRead in store or a direct API call
-                        await api.chat.getMessages(token, conversationId, 1, 0); // Side effect: mark read if backend does it on fetch
-                        // Better: call a specific mark read if available
-                        // Currently store.markRead(chatId, messageId) handles it.
-                    }
-                } catch (error) {
-                    console.error('[Notifee] Failed to mark as read:', error);
-                }
+                // Implementation for mark as read
             }
         }
 
@@ -200,12 +212,23 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
     }
 });
 
+
+// ============================================================================
+// PERMISSIONS & TOKEN
+// ============================================================================
 export async function requestFirebasePermission(): Promise<boolean> {
     try {
-        const authStatus = await requestPermission(firebaseMessaging);
+        const authStatus = await requestPermission(messaging);
         const enabled =
             authStatus === AuthorizationStatus.AUTHORIZED ||
             authStatus === AuthorizationStatus.PROVISIONAL;
+
+        if (enabled) {
+            console.log('[Firebase] ✅ Notification permission granted:', authStatus);
+        } else {
+            console.log('[Firebase] ❌ Notification permission denied');
+        }
+
         return enabled;
     } catch (error) {
         console.error('[Firebase] ❌ Error requesting permission:', error);
@@ -215,18 +238,47 @@ export async function requestFirebasePermission(): Promise<boolean> {
 
 export async function getFCMToken(): Promise<string | null> {
     try {
-        const tokenVal = await getToken(firebaseMessaging);
-        return tokenVal;
+        const token = await getToken(messaging);
+        console.log('[Firebase] 🔑 FCM Token:', token);
+        return token;
     } catch (error) {
         console.error('[Firebase] ❌ Error getting FCM token:', error);
         return null;
     }
 }
 
+// ============================================================================
+// LISTENERS & EXPORTS
+// ============================================================================
+onTokenRefresh(messaging, async (token) => {
+    console.log('[Firebase] 🔄 FCM Token refreshed:', token);
+    await registerForPushNotificationsAsync();
+});
+
+console.log('[Firebase] ✅ Firebase messaging service initialized');
+
+export const setupForegroundHandler = () => {
+    return onMessage(messaging, async (remoteMessage) => {
+        await handleRemoteMessage(remoteMessage, 'foreground');
+    });
+};
+
 export const setupTokenRefreshListener = () => {
-    return onTokenRefresh(firebaseMessaging, async (tokenVal) => {
+    return onTokenRefresh(messaging, async (tokenVal) => {
         await registerForPushNotificationsAsync();
     });
 };
 
-export default firebaseMessaging;
+export const setupNotificationOpenedHandler = () => {
+    onNotificationOpenedApp(messaging, (remoteMessage) => {
+        console.log('[Firebase] 📱 Notification opened app from background:', remoteMessage);
+    });
+
+    getInitialNotification(messaging).then((remoteMessage) => {
+        if (remoteMessage) {
+            console.log('[Firebase] 📱 App opened from killed state by notification:', remoteMessage);
+        }
+    });
+};
+
+export default messaging;
