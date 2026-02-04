@@ -11,3 +11,7 @@ class CallSerializer(serializers.ModelSerializer):
         model = Call
         fields = ['id', 'caller', 'receiver', 'receiver_username', 'started_at', 'ended_at', 'status', 'is_video']
         read_only_fields = ['caller', 'receiver', 'started_at']
+
+    def create(self, validated_data):
+        validated_data.pop('receiver_username', None)
+        return super().create(validated_data)

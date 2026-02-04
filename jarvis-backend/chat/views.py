@@ -254,6 +254,23 @@ class MessageUploadView(APIView):
                             'message': data
                         }
                     )
+                     # Send FCM if it's the recipient
+                     if participant.id != request.user.id:
+                         try:
+                             from utils.notifications import send_fcm_notification
+                             send_fcm_notification(
+                                 user=participant,
+                                 title=f"New message from {request.user.username}",
+                                 body=text[:100] if text else "Sent a file",
+                                 data={
+                                     "type": "chat_message",
+                                     "conversation_id": str(conversation.id),
+                                     "sender_id": str(request.user.id),
+                                     "message_id": str(message.id)
+                                 }
+                             )
+                         except Exception as e:
+                             print(f"Failed to send notification via upload view: {e}")
 
             return Response(data, status=status.HTTP_201_CREATED)
 
