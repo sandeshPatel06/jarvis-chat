@@ -213,6 +213,22 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         'payload': text_data_json 
                     }
                 )
+
+                # Send FCM Notification for Incoming Call (Offer)
+                if message_type == 'webrtc_offer':
+                    from utils.notifications import send_fcm_notification
+                    print(f"[WS] 📲 Sending FCM for Incoming Call to user_{recipient_id}")
+                    send_fcm_notification(
+                        user=User.objects.get(id=recipient_id),
+                        title="Incoming Call",
+                        body="Incoming video call...",
+                        data={
+                            "type": "incoming_call",
+                            "chatId": chat_id,
+                            "callerName": self.user.username,
+                            "uuid": text_data_json.get('offer', {}).get('sdp', '')[:10] # Unique-ish ID
+                        }
+                    )
             else:
                 print(f"[WS] ❌ Could not find recipient for WebRTC signal in chat {chat_id}")
             return

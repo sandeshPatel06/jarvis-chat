@@ -28,13 +28,22 @@ def send_fcm_notification(user, title, body, data=None):
         return False
 
     try:
+        # Data-only message for Headless reliability
+        # We move title/body into 'data' so the app can handle it manually
+        payload_data = data or {}
+        payload_data.update({
+            'title': title,
+            'body': body
+        })
+
         message = messaging.Message(
-            notification=messaging.Notification(
-                title=title,
-                body=body,
-            ),
-            data=data or {},
+            data=payload_data,
             token=user.fcm_token,
+            # Android-specific config for high priority
+            android=messaging.AndroidConfig(
+                priority='high',
+                ttl=0, # 0 means "now or never" (good for calls), or use default
+            )
         )
         response = messaging.send(message)
         return True
