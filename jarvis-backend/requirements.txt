@@ -24,7 +24,7 @@ whitenoise==6.6.0
 django-jazzmin==3.0.0
 
 # Image handling
-Pillow==10.2.0
+Pillow==11.0.0
 
 # WebSockets (Channels dependencies)
 daphne==4.1.0
