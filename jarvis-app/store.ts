@@ -154,8 +154,8 @@ const playRingtone = async (isIncoming: boolean) => {
         }
 
         const source = isIncoming
-            ? 'https://assets.mixkit.co/active_storage/sfx/1359/1359-preview.mp3' // Classic phone ring
-            : 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'; // Dial tone
+            ? require('@/assets/sounds/incoming_call.mp3')
+            : require('@/assets/sounds/outgoing_call.mp3');
 
         const player = Audio.createAudioPlayer(source);
         player.loop = true;
@@ -551,12 +551,12 @@ export const useStore = create<AppState>((set, get) => {
                 const state = get().callState;
                 const currentUser = get().user?.username;
 
-        
+
                 const isGlaring = state.isCalling || state.incomingCall;
                 const isRenegotiation = state.isCalling && state.activeChatId === message.chat_id;
 
                 if (isGlaring && !isRenegotiation) {
-                   
+
                     const chat = get().chats.find(c => c.id === message.chat_id);
                     const remoteUsername = chat?.name;
 
@@ -584,7 +584,7 @@ export const useStore = create<AppState>((set, get) => {
                         }));
                     }
 
-                    
+
                     const { bufferedCandidates } = get().callState;
                     if (bufferedCandidates.length > 0 && webrtcService.peerConnection && webrtcService.peerConnection.remoteDescription) {
                         console.log(`[Signaling] Processing ${bufferedCandidates.length} buffered ICE candidates after renegotiation`);
@@ -599,8 +599,8 @@ export const useStore = create<AppState>((set, get) => {
                 }
 
 
-                playRingtone(true); 
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); 
+                playRingtone(true);
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
 
                 set((state) => ({
                     callState: {
@@ -620,19 +620,19 @@ export const useStore = create<AppState>((set, get) => {
                     return;
                 }
 
-                stopRingtone(); 
+                stopRingtone();
 
 
                 await webrtcService.setRemoteDescription(message.answer);
 
-                
+
                 const { bufferedCandidates } = get().callState;
                 if (bufferedCandidates.length > 0) {
                     console.log(`[Signaling] Caller processing ${bufferedCandidates.length} buffered ICE candidates after Answer`);
                     for (const candidate of bufferedCandidates) {
                         await webrtcService.addIceCandidate(candidate);
                     }
-                    
+
                     set((state) => ({
                         callState: { ...state.callState, bufferedCandidates: [], isMinimized: false }
                     }));
@@ -658,7 +658,7 @@ export const useStore = create<AppState>((set, get) => {
 
                 const { callState } = get();
                 if (callState.activeChatId === message.chat_id || callState.incomingCall?.chatId === message.chat_id) {
-                    webrtcService.endCall(); 
+                    webrtcService.endCall();
                     stopRingtone();
                     set((state) => ({
                         callState: {
@@ -682,7 +682,7 @@ export const useStore = create<AppState>((set, get) => {
         setActiveChat: (chatId) => {
             set((state) => ({
                 activeChatId: chatId,
-                
+
                 chats: state.chats.map(c => c.id === chatId ? { ...c, unreadCount: 0 } : c)
             }));
         },
@@ -709,10 +709,10 @@ export const useStore = create<AppState>((set, get) => {
                     isRead: false,
                     isDelivered: false,
                     isUnsent: true,
-                    reply_to: undefined 
+                    reply_to: undefined
                 };
 
-                
+
                 if (replyToId) {
                     const chat = get().chats.find(c => c.id === chatId);
                     const parent = chat?.messages.find(m => m.id === replyToId);
@@ -728,7 +728,7 @@ export const useStore = create<AppState>((set, get) => {
                 get().addMessage({ ...newMessage, conversation_id: chatId });
                 await database.saveMessage(newMessage, chatId, true);
             }
-            
+
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         },
         sendFileMessage: async (chatId, file, text = '', replyToId) => {
@@ -748,7 +748,7 @@ export const useStore = create<AppState>((set, get) => {
 
                 const response = await api.chat.uploadFile(token, chatId, null, file, text, replyToId);
 
-                
+
                 let localFileUri = null;
                 if (response.file) {
                     const fullMediaUrl = getMediaUrl(response.file);
@@ -762,7 +762,7 @@ export const useStore = create<AppState>((set, get) => {
                     }
                 }
 
-                
+
                 const msg = {
                     id: response.id || `temp_${Date.now()}`,
                     text: text || '',
@@ -770,8 +770,8 @@ export const useStore = create<AppState>((set, get) => {
                     timestamp: new Date(response.timestamp || Date.now()),
                     isRead: false,
                     isDelivered: false,
-                    file: localFileUri || response.file, 
-                    remoteFile: response.file, 
+                    file: localFileUri || response.file,
+                    remoteFile: response.file,
                     file_type: response.file_type,
                     file_name: response.file_name,
                     conversation_id: chatId,
@@ -782,7 +782,7 @@ export const useStore = create<AppState>((set, get) => {
             } catch (e: any) {
                 console.error('Send file failed', e);
 
-                
+
                 let errorMessage = 'Failed to send file. Please try again.';
 
                 if (e.message) {
@@ -799,7 +799,7 @@ export const useStore = create<AppState>((set, get) => {
                     }
                 }
 
-                
+
                 throw new Error(errorMessage);
             }
         },
@@ -812,18 +812,18 @@ export const useStore = create<AppState>((set, get) => {
             const unsentMessages = await database.getUnsentMessages();
 
             for (const msg of unsentMessages) {
-                
+
                 const replyToId = msg.reply_to?.id;
 
                 socket.send(JSON.stringify({
                     message: msg.text,
-                    conversation_id: msg.conversation_id, 
+                    conversation_id: msg.conversation_id,
                     reply_to_id: replyToId
                 }));
 
                 await database.deleteUnsentMessage(msg.id);
 
-                
+
                 set(state => ({
                     chats: state.chats.map(chat => {
                         if (chat.id === msg.conversation_id) {
