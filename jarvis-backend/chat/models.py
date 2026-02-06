@@ -16,7 +16,7 @@ class Message(models.Model):
     file = models.FileField(upload_to='chat_files/', null=True, blank=True)
     file_type = models.CharField(max_length=50, null=True, blank=True)
     file_name = models.CharField(max_length=255, null=True, blank=True)
-    timestamp = models.DateTimeField(auto_now_add=True)
+    timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
     is_read = models.BooleanField(default=False)
     is_delivered = models.BooleanField(default=False)
     reply_to = models.ForeignKey('self', null=True, blank=True, related_name='replies', on_delete=models.SET_NULL)

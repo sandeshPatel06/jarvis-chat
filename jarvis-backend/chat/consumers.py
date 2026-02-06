@@ -2,12 +2,14 @@ import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.contrib.auth import get_user_model
+import logging
+
+logger = logging.getLogger(__name__)
 
 User = get_user_model()
 
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
-        # We assume url is /ws/chat/
         self.user = self.scope["user"]
         
         if self.user.is_anonymous:
@@ -16,7 +18,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         self.room_group_name = f"user_{self.user.id}"
 
-        # Join room group
         await self.channel_layer.group_add(
             self.room_group_name,
             self.channel_name
@@ -76,7 +77,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             return
 
         if text_data_json.get('type') == 'typing':
-            print(f"[WS] Received typing event: {text_data_json}")
+            # logger.debug(f"[WS] Received typing event: {text_data_json}")
             conversation_id = text_data_json.get('conversation_id')
             recipient_id = text_data_json.get('recipient_id')
             
@@ -89,7 +90,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                  final_recipient_id = await self.get_recipient_from_conversation(conversation_id)
 
             if final_recipient_id:
-                 print(f"[WS] Broadcasting typing to user_{final_recipient_id}")
+                 # logger.debug(f"[WS] Broadcasting typing to user_{final_recipient_id}")
                  await self.channel_layer.group_send(
                     f"user_{final_recipient_id}",
                     {
@@ -197,15 +198,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # WebRTC Signaling
         # WebRTC Signaling
         if message_type in ['webrtc_offer', 'webrtc_answer', 'webrtc_ice_candidate']:
-            print(f"[WS] 🔵 WebRTC {message_type} received: {text_data_json}")
+            logger.info(f"[WS] 🔵 WebRTC {message_type} received: {text_data_json}")
             chat_id = text_data_json.get('chat_id')
             if not chat_id:
-                print(f"[WS] ❌ WebRTC signal missing chat_id")
+                logger.warning(f"[WS] ❌ WebRTC signal missing chat_id")
                 return
 
             recipient_id = await self.get_recipient_from_conversation(chat_id)
             if recipient_id:
-                print(f"[WS] ➡️ Broadcasting {message_type} to user_{recipient_id}")
+                logger.info(f"[WS] ➡️ Broadcasting {message_type} to user_{recipient_id}")
                 await self.channel_layer.group_send(
                     f"user_{recipient_id}",
                     {
@@ -217,7 +218,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 # Send FCM Notification for Incoming Call (Offer)
                 if message_type == 'webrtc_offer':
                     from utils.notifications import send_fcm_notification
-                    print(f"[WS] 📲 Sending FCM for Incoming Call to user_{recipient_id}")
+                    logger.info(f"[WS] 📲 Sending FCM for Incoming Call to user_{recipient_id}")
                     send_fcm_notification(
                         user=User.objects.get(id=recipient_id),
                         title="Incoming Call",
@@ -231,15 +232,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         }
                     )
             else:
-                print(f"[WS] ❌ Could not find recipient for WebRTC signal in chat {chat_id}")
+                logger.warning(f"[WS] ❌ Could not find recipient for WebRTC signal in chat {chat_id}")
             return
             
         if message_type == 'call_ended':
-            print(f"[WS] 🔴 Call ended signal received: {text_data_json}")
+            logger.info(f"[WS] 🔴 Call ended signal received: {text_data_json}")
             chat_id = text_data_json.get('chat_id')
             recipient_id = await self.get_recipient_from_conversation(chat_id)
             if recipient_id:
-                print(f"[WS] ➡️ Broadcasting call_ended to user_{recipient_id}")
+                logger.info(f"[WS] ➡️ Broadcasting call_ended to user_{recipient_id}")
                 await self.channel_layer.group_send(
                     f"user_{recipient_id}",
                     {
@@ -302,7 +303,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
              other_participant = conversation.participants.exclude(id=self.user.id).first()
              return other_participant.id if other_participant else None
         except Exception as e:
-            print(f"[WS] Error finding recipient: {e}")
+            logger.error(f"[WS] Error finding recipient: {e}")
             return None
 
     async def message_read(self, event):
@@ -384,7 +385,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         from accounts.models import BlockedUser
                         # Sync check provided we are in sync_to_async/database_sync_to_async context
                         if BlockedUser.objects.filter(blocker=other_user, blocked=self.user).exists():
-                            print(f"[WS] Message soft-blocked: {self.user} is blocked by {other_user}")
+                            logger.warning(f"[WS] Message soft-blocked: {self.user} is blocked by {other_user}")
                             is_blocked = True
                             # Continue to save message, but flag it
 
@@ -428,12 +429,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
                             }
                         )
                     except Exception as e:
-                        print(f"Failed to send message notification: {e}")
+                        logger.error(f"Failed to send message notification: {e}")
 
                 return data, derived_recipient_id, is_blocked
                 
         except Exception as e:
-            print(f"Error saving message: {e}")
+            logger.error(f"Error saving message: {e}")
             return None, None, False
         return None, None, False
 

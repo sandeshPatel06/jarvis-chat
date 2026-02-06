@@ -19,7 +19,7 @@ class ConversationListView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         is_deleted = self.request.query_params.get('deleted', 'false') == 'true'
-        return self.request.user.conversations.filter(is_deleted=is_deleted).order_by('-id')
+        return self.request.user.conversations.filter(is_deleted=is_deleted).prefetch_related('participants').order_by('-id')
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -79,7 +79,7 @@ class MessageListView(generics.ListAPIView):
         
         return Message.objects.filter(
             conversation_id=conversation_id
-        ).exclude(
+        ).select_related('sender', 'reply_to', 'reply_to__sender').prefetch_related('reactions', 'reactions__user').exclude(
             sender__in=blocked_senders,
             is_delivered=False 
         ).order_by('-timestamp')
@@ -119,13 +119,6 @@ class RestoreChatView(APIView):
         # 2. Restore Messages if a date is provided
         if restore_date:
             try:
-                # Restore messages in these conversations that were deleted ON or BEFORE this date
-                # Or user specific? The deleting logic sets deleted_at.
-                # If "restore info" is about restoring content I deleted:
-                # We restore messages sent by request.user in these chats where deleted_at <= date?
-                # Or messages in these chats generally? Usually user can only delete their own.
-                
-                # Logic: Restore messages sent by ME in these conversations, deleted_at <= restore_date
                 messages = Message.objects.filter(
                     conversation__id__in=conversation_ids,
                     sender=request.user,
@@ -178,6 +171,23 @@ class MessageUploadView(APIView):
         file_type = request.data.get('file_type')
         file_name = request.data.get('file_name')
         reply_to_id = request.data.get('reply_to_id')
+
+        # File Validation (Security)
+        if file:
+            # 1. Size Limit (e.g., 50MB)
+            if file.size > 50 * 1024 * 1024:
+                return Response({"error": "File too large (max 50MB)"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # 2. Type Limit
+            allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 
+                             'video/mp4', 'video/quicktime', 'video/webm',
+                             'audio/mpeg', 'audio/mp4', 'audio/wav', 'audio/webm',
+                             'application/pdf']
+            
+            # Check content_type (trusting header, but better than nothing). 
+            # For strict check, we'd use python-magic but that requires system libs.
+            if file.content_type not in allowed_types:
+                 return Response({"error": f"File type not allowed: {file.content_type}"}, status=status.HTTP_400_BAD_REQUEST)
 
         # Allow file only, text only, or both
         if not file and not text:
@@ -270,12 +280,11 @@ class MessageUploadView(APIView):
                                  }
                              )
                          except Exception as e:
-                             print(f"Failed to send notification via upload view: {e}")
+                             logger.error(f"Failed to send notification via upload view: {e}")
 
             return Response(data, status=status.HTTP_201_CREATED)
 
         except Exception as e:
-            print(e)
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            logger.error(f"Error in upload view: {e}")
 
 

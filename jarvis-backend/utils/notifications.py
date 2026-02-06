@@ -2,6 +2,9 @@ import firebase_admin
 from firebase_admin import credentials, messaging
 from django.conf import settings
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Initialize Firebase Admin
 if not firebase_admin._apps:
@@ -15,7 +18,7 @@ if not firebase_admin._apps:
             # Or assume default credential loading if env var is set
             firebase_admin.initialize_app()
     except Exception as e:
-        print(f"Warning: Failed to initialize Firebase Admin: {e}")
+        logger.warning(f"Failed to initialize Firebase Admin: {e}")
 
 def send_fcm_notification(user, title, body, data=None, ttl=None, priority='high'):
     """
@@ -53,5 +56,5 @@ def send_fcm_notification(user, title, body, data=None, ttl=None, priority='high
         response = messaging.send(message)
         return True
     except Exception as e:
-        print(f"Error sending FCM notification to {user.username}: {e}")
+        logger.error(f"Error sending FCM notification to {user.username}: {e}")
         return False

@@ -1,62 +1,13 @@
-import * as SQLite from 'expo-sqlite';
+import { getDb, initDatabase as initDb } from './db';
 import { Chat, Message } from '@/types';
 
-let db: SQLite.SQLiteDatabase | null = null;
-
-const openDatabase = async () => {
-    if (db) return db;
-    db = await SQLite.openDatabaseAsync('jarvis.db');
-    return db;
-};
-
-export const initDatabase = async () => {
-    try {
-        const database = await openDatabase();
-        await database.execAsync(`
-            PRAGMA journal_mode = WAL;
-            CREATE TABLE IF NOT EXISTS conversations (
-                id TEXT PRIMARY KEY,
-                name TEXT,
-                avatar TEXT,
-                last_message TEXT,
-                last_message_time TEXT,
-                unread_count INTEGER,
-                user_id INTEGER
-            );
-            CREATE TABLE IF NOT EXISTS messages (
-                id TEXT PRIMARY KEY,
-                conversation_id TEXT,
-                text TEXT,
-                sender TEXT,
-                timestamp TEXT,
-                is_read INTEGER,
-                is_delivered INTEGER,
-                reactions TEXT,
-                reply_to_json TEXT,
-                is_unsent INTEGER DEFAULT 0,
-                file TEXT,
-                file_type TEXT,
-                file_name TEXT,
-                FOREIGN KEY (conversation_id) REFERENCES conversations (id)
-            );
-        `);
-
-        // Safely add columns to existing installations
-        try { await database.execAsync('ALTER TABLE messages ADD COLUMN file TEXT;'); } catch (e) { }
-        try { await database.execAsync('ALTER TABLE messages ADD COLUMN file_type TEXT;'); } catch (e) { }
-        try { await database.execAsync('ALTER TABLE messages ADD COLUMN file_name TEXT;'); } catch (e) { }
-        try { await database.execAsync('ALTER TABLE conversations ADD COLUMN user_id INTEGER;'); } catch (e) { }
-
-        console.log('Database initialized');
-    } catch (error) {
-        console.error('Error initializing database:', error);
-    }
-};
+// Re-export initDatabase
+export const initDatabase = initDb;
 
 export const saveConversation = async (chat: Chat) => {
-    const database = await openDatabase();
+    const db = await getDb();
     try {
-        await database.runAsync(
+        await db.runAsync(
             `INSERT OR REPLACE INTO conversations (id, name, avatar, last_message, last_message_time, unread_count, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)`,
             [chat.id, chat.name, chat.avatar || '', chat.lastMessage, chat.lastMessageTime.toISOString(), chat.unreadCount, chat.user_id || null]
         );
@@ -66,12 +17,11 @@ export const saveConversation = async (chat: Chat) => {
 };
 
 export const saveMessage = async (message: Message, conversationId: string, isUnsent: boolean = false) => {
-    const database = await openDatabase();
+    const db = await getDb();
     try {
-        // Ensure file is a string (it might be an object from some sources)
         const fileValue = typeof message.file === 'string' ? message.file : (message.file ? String(message.file) : '');
 
-        await database.runAsync(
+        await db.runAsync(
             `INSERT OR REPLACE INTO messages (id, conversation_id, text, sender, timestamp, is_read, is_delivered, reactions, reply_to_json, is_unsent, file, file_type, file_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 message.id,
@@ -95,9 +45,9 @@ export const saveMessage = async (message: Message, conversationId: string, isUn
 };
 
 export const getConversations = async (): Promise<Chat[]> => {
-    const database = await openDatabase();
+    const db = await getDb();
     try {
-        const rows = await database.getAllAsync('SELECT * FROM conversations ORDER BY last_message_time DESC');
+        const rows = await db.getAllAsync('SELECT * FROM conversations ORDER BY last_message_time DESC');
         return rows.map((row: any) => ({
             id: row.id,
             name: row.name,
@@ -115,9 +65,9 @@ export const getConversations = async (): Promise<Chat[]> => {
 };
 
 export const getMessages = async (conversationId: string): Promise<Message[]> => {
-    const database = await openDatabase();
+    const db = await getDb();
     try {
-        const rows = await database.getAllAsync(
+        const rows = await db.getAllAsync(
             'SELECT * FROM messages WHERE conversation_id = ? ORDER BY timestamp ASC',
             [conversationId]
         );
@@ -142,9 +92,9 @@ export const getMessages = async (conversationId: string): Promise<Message[]> =>
 };
 
 export const getUnsentMessages = async () => {
-    const database = await openDatabase();
+    const db = await getDb();
     try {
-        const rows = await database.getAllAsync('SELECT * FROM messages WHERE is_unsent = 1 ORDER BY timestamp ASC');
+        const rows = await db.getAllAsync('SELECT * FROM messages WHERE is_unsent = 1 ORDER BY timestamp ASC');
         return rows.map((row: any) => ({
             ...row,
             timestamp: new Date(row.timestamp),
@@ -158,22 +108,23 @@ export const getUnsentMessages = async () => {
 };
 
 export const deleteUnsentMessage = async (id: string) => {
-    const database = await openDatabase();
+    const db = await getDb();
     try {
-        await database.runAsync('DELETE FROM messages WHERE id = ?', [id]);
+        await db.runAsync('DELETE FROM messages WHERE id = ?', [id]);
     } catch (error) {
         console.error('Error deleting unsent message', error);
     }
 };
 
 export const markMessageSent = async (id: string, newId: string, timestamp: Date) => {
-    const database = await openDatabase();
+    const db = await getDb();
     try {
-        await database.runAsync(
+        await db.runAsync(
             'UPDATE messages SET id = ?, is_unsent = 0, timestamp = ? WHERE id = ?',
             [newId, timestamp.toISOString(), id]
         );
     } catch (error) {
         console.error('Error marking message sent', error);
     }
-}
+};
+
