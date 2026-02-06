@@ -222,6 +222,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         user=User.objects.get(id=recipient_id),
                         title="Incoming Call",
                         body="Incoming video call...",
+                        ttl=0, # Now or never for calls
                         data={
                             "type": "incoming_call",
                             "chatId": chat_id,

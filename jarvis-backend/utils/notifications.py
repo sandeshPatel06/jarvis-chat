@@ -17,9 +17,10 @@ if not firebase_admin._apps:
     except Exception as e:
         print(f"Warning: Failed to initialize Firebase Admin: {e}")
 
-def send_fcm_notification(user, title, body, data=None):
+def send_fcm_notification(user, title, body, data=None, ttl=None, priority='high'):
     """
     Send an FCM notification to a specific user.
+    :param ttl: Time to live in seconds. 0 for "now or never" (VoIP), None for default (4 weeks).
     """
     if not user.fcm_token:
         return False
@@ -36,14 +37,18 @@ def send_fcm_notification(user, title, body, data=None):
             'body': body
         })
 
+        # Config kwargs
+        android_config = {
+            'priority': priority
+        }
+        if ttl is not None:
+            android_config['ttl'] = ttl
+
         message = messaging.Message(
             data=payload_data,
             token=user.fcm_token,
             # Android-specific config for high priority
-            android=messaging.AndroidConfig(
-                priority='high',
-                ttl=0, # 0 means "now or never" (good for calls), or use default
-            )
+            android=messaging.AndroidConfig(**android_config)
         )
         response = messaging.send(message)
         return True
