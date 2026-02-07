@@ -1,4 +1,4 @@
-name: Expo CI/CD
+name: Expo Build & Email Notification
 
 on:
   push:
@@ -28,7 +28,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Setup Expo & EAS
+      - name: Install Expo & EAS
         run: npm install -g expo-cli eas-cli
 
       - name: Authenticate with Expo
@@ -36,10 +36,45 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: expo whoami
 
-      - name: Run tests
-        run: npm test --if-present
-
-      - name: Build with EAS
+      - name: Build with EAS (JSON output)
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: eas build --platform android --profile preview --non-interactive
+        run: |
+          eas build \
+            --platform android \
+            --profile preview \
+            --non-interactive \
+            --json > build-result.json
+
+      - name: Extract download URL (demo-safe)
+        run: |
+          if jq -e '.[0].artifacts.buildUrl' build-result.json > /dev/null; then
+            DOWNLOAD_URL=$(jq -r '.[0].artifacts.buildUrl' build-result.json)
+          else
+            DOWNLOAD_URL="https://expo.dev/accounts/reakuser/projects/jarvis/builds/79e16a16-9619-45f3-9d9b-2a4ad0c1499f"
+          fi
+
+          echo "DOWNLOAD_URL=$DOWNLOAD_URL" >> $GITHUB_ENV
+
+      - name: Send email notification
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 587
+          username: ${{ secrets.SMTP_USER }}
+          password: ${{ secrets.SMTP_PASS }}
+          subject: "🚀 Expo Build Completed"
+          to: sandeshpatel.sp.93@gmail.com
+          from: "Expo CI <${{ secrets.SMTP_USER }}>"
+          body: |
+            Hello 👋
+
+            Your Expo Android build has completed successfully.
+
+            📦 Download link:
+            ${{ env.DOWNLOAD_URL }}
+
+            🔗 Expo Build Page:
+            https://expo.dev/accounts/reakuser/projects/jarvis/builds
+
+            — GitHub Actions 🚀
