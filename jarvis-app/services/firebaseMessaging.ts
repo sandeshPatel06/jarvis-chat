@@ -13,7 +13,7 @@ import {
 import notifee, { AndroidImportance, AndroidVisibility, AndroidStyle, EventType } from '@notifee/react-native';
 
 import { handleIncomingCallFCM } from '@/helper/backgroundCallHelper';
-import { registerForPushNotificationsAsync } from '../utils/notifications';
+// import { registerForPushNotificationsAsync } from '../utils/notifications'; // Deprecated in favor of FCM
 import { getMediaUrl } from '@/utils/media';
 import { api } from './api';
 import { useStore } from '@/store';
@@ -23,28 +23,38 @@ import { useStore } from '@/store';
 // ============================================================================
 async function handleRemoteMessage(remoteMessage: any, context: 'foreground' | 'background') {
     console.log(`[Firebase ${context}] 📩 Message received in ${context} state`);
-    console.log(`[Firebase ${context}] Message data:`, JSON.stringify(remoteMessage.data, null, 2));
+    console.log(`[Firebase ${context}] Message structure:`, JSON.stringify(remoteMessage, null, 2));
 
     try {
         const { data, notification: firebaseNotification } = remoteMessage;
 
         // 1. Handle Incoming Call
+        // Check for 'incoming_call' in both possible field locations
         if (data?.type === 'incoming_call') {
             console.log(`[Firebase ${context}] 📞 Incoming call detected`);
 
             const fcmData = {
                 type: data.type,
-                callUUID: data.callUUID || data.callUUID,
-                callerId: data.handle || data.callerId || 'Unknown',
-                callerName: data.callerName || data.caller_name || 'Unknown',
+                // Align backend 'call_uuid' or 'uuid' with frontend 'callUUID'
+                callUUID: data.call_uuid || data.uuid || data.callUUID || Date.now().toString(),
+                callerId: data.handle || data.callerId || data.sender_id || 'Unknown',
+                callerName: data.caller_name || data.sender_name || firebaseNotification?.title || 'Unknown Caller',
             };
 
             await handleIncomingCallFCM(fcmData);
             console.log(`[Firebase ${context}] ✅ Call handled successfully`);
         }
         // 2. Handle New Message
-        else if (data?.type === 'message' || data?.conversation_id) {
+        else if (data?.type === 'message' || data?.conversation_id || firebaseNotification) {
             console.log(`[Firebase ${context}] 💬 New message detected`);
+
+            // If we are in foreground, we might want to skip showing the notification 
+            // if the user is already in that chat. 
+            const state = useStore.getState();
+            if (context === 'foreground' && state.activeChatId === data?.conversation_id) {
+                console.log(`[Firebase ${context}] Skip showing notification: user currently in this chat`);
+                return;
+            }
 
             const channelId = await notifee.createChannel({
                 id: 'messages',
@@ -53,18 +63,19 @@ async function handleRemoteMessage(remoteMessage: any, context: 'foreground' | '
                 visibility: AndroidVisibility.PUBLIC,
             });
 
-            const senderName = data.sender_name || firebaseNotification?.title || 'New Message';
-            const messageText = data.text || firebaseNotification?.body || 'You have a new message';
-            const avatarUrl = data.sender_avatar ? getMediaUrl(data.sender_avatar) : null;
+            // Standardize field extraction with multiple fallbacks
+            const senderName = data?.sender_name || firebaseNotification?.title || 'New Message';
+            const messageText = data?.text || data?.body || firebaseNotification?.body || 'You have a new message';
+            const avatarUrl = data?.sender_avatar ? getMediaUrl(data.sender_avatar) : null;
 
             await notifee.displayNotification({
-                id: data.message_id || Date.now().toString(),
+                id: data?.message_id || Date.now().toString(),
                 title: senderName,
                 body: messageText,
                 data: {
                     type: 'message',
-                    conversation_id: data.conversation_id,
-                    message_id: data.message_id,
+                    conversation_id: data?.conversation_id,
+                    message_id: data?.message_id,
                 },
                 android: {
                     channelId,
@@ -248,11 +259,28 @@ export async function getFCMToken(): Promise<string | null> {
 }
 
 // ============================================================================
-// LISTENERS & EXPORTS
+// TOKEN SYNC WITH BACKEND
 // ============================================================================
+export async function syncTokenWithBackend() {
+    try {
+        const state = useStore.getState();
+        const token = state.token;
+        if (!token) return;
+
+        const fcmToken = await getFCMToken();
+        if (fcmToken) {
+            console.log('[Firebase] 🔄 Syncing FCM Token with backend...');
+            await api.auth.updateProfile(token, { fcm_token: fcmToken });
+            console.log('[Firebase] ✅ FCM Token synced');
+        }
+    } catch (error) {
+        console.error('[Firebase] ❌ Failed to sync FCM token:', error);
+    }
+}
+
 onTokenRefresh(messaging, async (token) => {
     console.log('[Firebase] 🔄 FCM Token refreshed:', token);
-    await registerForPushNotificationsAsync();
+    await syncTokenWithBackend();
 });
 
 console.log('[Firebase] ✅ Firebase messaging service initialized');
@@ -265,7 +293,7 @@ export const setupForegroundHandler = () => {
 
 export const setupTokenRefreshListener = () => {
     return onTokenRefresh(messaging, async (tokenVal) => {
-        await registerForPushNotificationsAsync();
+        await syncTokenWithBackend();
     });
 };
 

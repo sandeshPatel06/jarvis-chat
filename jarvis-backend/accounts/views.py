@@ -1,34 +1,165 @@
-from rest_framework import generics, permissions
+from django.db import models
+from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
 from rest_framework.authtoken.views import ObtainAuthToken
+from rest_framework.views import APIView
 from .serializers import RegisterSerializer, UserSerializer
 from django.contrib.auth import get_user_model
 from chat.models import Message
 from chat.serializers import MessageSerializer
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
+import random
+import uuid
+from django.core.mail import send_mail
+from django.utils import timezone
+from datetime import timedelta
+from .models import PendingVerification, BlockedUser
+from django.contrib.auth import authenticate
 
 User = get_user_model()
 
-class RegisterView(generics.CreateAPIView):
-    serializer_class = RegisterSerializer
+class RequestOTPView(APIView):
     permission_classes = [permissions.AllowAny]
 
-class CustomLoginView(ObtainAuthToken):
-    def post(self, request, *args, **kwargs):
-        serializer = self.serializer_class(data=request.data,
-                                           context={'request': request})
-        serializer.is_valid(raise_exception=True)
-        user = serializer.validated_data['user']
-        token, created = Token.objects.get_or_create(user=user)
-        return Response({
-            'token': token.key,
-            'user': UserSerializer(user).data
-        })
+    def post(self, request):
+        identifier = request.data.get('identifier') # email or phone
+        if not identifier:
+            return Response({"error": "Identifier is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-from rest_framework.views import APIView
-from rest_framework import status
+        # Basic email regex check if identifier is email
+        import re
+        email_regex = r'^[^\s@]+@[^\s@]+\.[^\s@]+$'
+        if '@' in identifier and not re.match(email_regex, identifier):
+            return Response({"error": "Invalid email format"}, status=status.HTTP_400_BAD_REQUEST)
+
+        otp_code = str(random.randint(100000, 999999))
+        session_id = str(uuid.uuid4())
+        
+        PendingVerification.objects.create(
+            identifier=identifier,
+            code=otp_code,
+            session_id=session_id
+        )
+
+        try:
+            send_mail(
+                'Your OTP for Jarvis',
+                f'Your OTP code is {otp_code}. It will expire in 10 minutes.',
+                None,
+                [identifier] if '@' in identifier else [], # Only email for now as per SMTP requirement
+                fail_silently=False,
+            )
+            return Response({"session_id": session_id, "message": "OTP sent successfully"}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": f"Failed to send email: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class VerifyOTPView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        session_id = request.data.get('session_id')
+        otp_code = request.data.get('otp_code')
+
+        if not session_id or not otp_code:
+            return Response({"error": "Session ID and OTP code are required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            # Check for OTP expiration (10 minutes)
+            expiry_time = timezone.now() - timedelta(minutes=10)
+            pending = PendingVerification.objects.get(
+                session_id=session_id, 
+                code=otp_code, 
+                is_verified=False,
+                created_at__gte=expiry_time
+            )
+            
+            pending.is_verified = True
+            pending.save()
+            
+            # Check if user already exists (for login flow)
+            user = User.objects.filter(models.Q(email=pending.identifier) | models.Q(phone_number=pending.identifier)).first()
+            
+            if user:
+                token, _ = Token.objects.get_or_create(user=user)
+                return Response({
+                    "status": "verified",
+                    "user_exists": True,
+                    "token": token.key,
+                    "user": UserSerializer(user).data
+                }, status=status.HTTP_200_OK)
+            else:
+                return Response({
+                    "status": "verified",
+                    "user_exists": False,
+                    "session_id": session_id
+                }, status=status.HTTP_200_OK)
+
+        except PendingVerification.DoesNotExist:
+            return Response({"error": "Invalid or expired OTP"}, status=status.HTTP_400_BAD_REQUEST)
+
+class CompleteSignupView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        session_id = request.data.get('session_id')
+        username = request.data.get('username')
+        password = request.data.get('password')
+        phone_number = request.data.get('phone_number')
+
+        if not all([session_id, username, password]):
+            return Response({"error": "Missing required fields"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            pending = PendingVerification.objects.get(session_id=session_id, is_verified=True)
+            
+            if User.objects.filter(username=username).exists():
+                return Response({"error": "Username already taken"}, status=status.HTTP_400_BAD_REQUEST)
+
+            email = pending.identifier if '@' in pending.identifier else None
+            phone = phone_number or (pending.identifier if '@' not in pending.identifier else None)
+
+            user = User.objects.create_user(
+                username=username,
+                email=email,
+                password=password,
+                phone_number=phone,
+                is_active=True
+            )
+            
+            token, _ = Token.objects.get_or_create(user=user)
+            pending.delete() # Cleanup
+            
+            return Response({
+                "token": token.key,
+                "user": UserSerializer(user).data
+            }, status=status.HTTP_201_CREATED)
+
+        except PendingVerification.DoesNotExist:
+            return Response({"error": "Invalid or unverified session"}, status=status.HTTP_400_BAD_REQUEST)
+
+class UniversalLoginView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        identifier = request.data.get('identifier') # email or phone
+        password = request.data.get('password')
+        
+        if not identifier or not password:
+             return Response({"error": "Identifier and password are required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Try to find user by email or phone
+        user = User.objects.filter(models.Q(email=identifier) | models.Q(phone_number=identifier)).first()
+        
+        if user and user.check_password(password):
+            token, _ = Token.objects.get_or_create(user=user)
+            return Response({
+                'token': token.key,
+                'user': UserSerializer(user).data
+            })
+        
+        return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
 
 class CheckContactsView(APIView):
     permission_classes = [permissions.IsAuthenticated]

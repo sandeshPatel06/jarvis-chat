@@ -2,9 +2,21 @@ import * as SQLite from 'expo-sqlite';
 
 
 const DB_NAME = 'jarvis.db';
+let dbInstance: SQLite.SQLiteDatabase | null = null;
+let initPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
 export const getDb = async () => {
-    return await SQLite.openDatabaseAsync(DB_NAME);
+    if (dbInstance) return dbInstance;
+    if (initPromise) return await initPromise;
+
+    initPromise = (async () => {
+        const db = await SQLite.openDatabaseAsync(DB_NAME);
+        dbInstance = db;
+        initPromise = null;
+        return db;
+    })();
+
+    return await initPromise;
 };
 
 export const initDatabase = async () => {

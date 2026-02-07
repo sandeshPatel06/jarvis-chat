@@ -13,7 +13,7 @@ import { AppState, BackHandler, useColorScheme } from 'react-native';
 
 import Colors from '@/constants/Colors';
 import { useStore } from '@/store';
-import { getFCMToken, requestFirebasePermission, setupForegroundHandler, setupNotificationOpenedHandler, setupTokenRefreshListener } from '@/services/firebaseMessaging';
+import { getFCMToken, requestFirebasePermission, setupForegroundHandler, setupNotificationOpenedHandler, setupTokenRefreshListener, syncTokenWithBackend } from '@/services/firebaseMessaging';
 import CustomToast from '@/components/CustomToast';
 import CustomAlert from '@/components/CustomAlert';
 import IncomingCallModal from '@/components/IncomingCallModal';
@@ -50,7 +50,7 @@ export default function RootLayout() {
     ...FontAwesome.font,
   });
 
-  const { token } = useStore();
+  const { token, initApp } = useStore();
 
   // Expo Router uses Error Boundaries to catch errors in the navigation tree.
   useEffect(() => {
@@ -58,18 +58,14 @@ export default function RootLayout() {
   }, [error]);
 
   useEffect(() => {
+    initApp();
+  }, []);
+
+  useEffect(() => {
     if (token) {
       requestFirebasePermission().then(async (granted) => {
         if (granted) {
-          const fcmToken = await getFCMToken();
-          if (fcmToken) {
-            try {
-              console.log('FCM Token:', fcmToken);
-              await api.auth.updateProfile(token, { fcm_token: fcmToken });
-            } catch (e) {
-              console.error('Failed to update FCM token', e);
-            }
-          }
+          await syncTokenWithBackend();
         }
       });
     }

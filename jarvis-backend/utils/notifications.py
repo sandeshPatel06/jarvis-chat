@@ -32,13 +32,20 @@ def send_fcm_notification(user, title, body, data=None, ttl=None, priority='high
         return False
 
     try:
-        # Data-only message for Headless reliability
-        # We move title/body into 'data' so the app can handle it manually
+        # Standardize data fields for the app to consume
         payload_data = data or {}
-        payload_data.update({
-            'title': title,
-            'body': body
-        })
+        # Ensure fallback for title/body in data payload
+        if 'sender_name' not in payload_data:
+            payload_data['sender_name'] = title
+        if 'text' not in payload_data:
+            payload_data['text'] = body
+            
+        # Standardize call fields if it's an incoming call
+        if payload_data.get('type') == 'incoming_call':
+            if 'call_uuid' not in payload_data and 'uuid' in payload_data:
+                payload_data['call_uuid'] = payload_data['uuid']
+            if 'caller_name' not in payload_data:
+                payload_data['caller_name'] = title
 
         # Config kwargs
         android_config = {
@@ -47,13 +54,27 @@ def send_fcm_notification(user, title, body, data=None, ttl=None, priority='high
         if ttl is not None:
             android_config['ttl'] = ttl
 
+        # Include notification block for reliable system-level display
+        # while keeping data-only flexibility for the app logic
+        notification = messaging.Notification(
+            title=title,
+            body=body,
+        )
+
         message = messaging.Message(
+            notification=notification,
             data=payload_data,
             token=user.fcm_token,
-            # Android-specific config for high priority
-            android=messaging.AndroidConfig(**android_config)
+            android=messaging.AndroidConfig(**android_config),
+            # Add APNS config for iOS if needed in future
+            apns=messaging.APNSConfig(
+                payload=messaging.APNSPayload(
+                    aps=messaging.Aps(badge=1, sound='default')
+                )
+            )
         )
         response = messaging.send(message)
+        logger.info(f"Successfully sent FCM message: {response}")
         return True
     except Exception as e:
         logger.error(f"Error sending FCM notification to {user.username}: {e}")

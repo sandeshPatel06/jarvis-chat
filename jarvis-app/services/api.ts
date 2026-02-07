@@ -17,8 +17,26 @@ const log = (message: string, data?: any) => {
 
 export const api = {
     auth: {
-        signup: async (data: any) => {
-            const url = `${API_URL}/auth/signup/`;
+        requestOTP: async (identifier: string) => {
+            const url = `${API_URL}/auth/request-otp/`;
+            try {
+                log(`POST ${url}`, { identifier });
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ identifier }),
+                });
+                const json = await response.json();
+                log('Request OTP response', { status: response.status, json });
+                if (!response.ok) throw new Error(json.error || 'Failed to request OTP');
+                return json;
+            } catch (error) {
+                log('Request OTP error', error);
+                throw error;
+            }
+        },
+        verifyOTP: async (data: { session_id: string; otp_code: string }) => {
+            const url = `${API_URL}/auth/verify-otp/`;
             try {
                 log(`POST ${url}`, data);
                 const response = await fetch(url, {
@@ -27,11 +45,29 @@ export const api = {
                     body: JSON.stringify(data),
                 });
                 const json = await response.json();
-                log('Signup response', { status: response.status, json });
-                if (!response.ok) throw new Error(JSON.stringify(json));
+                log('Verify OTP response', { status: response.status, json });
+                if (!response.ok) throw new Error(json.error || 'Verification failed');
                 return json;
             } catch (error) {
-                log('Signup error', error);
+                log('Verify OTP error', error);
+                throw error;
+            }
+        },
+        completeSignup: async (data: any) => {
+            const url = `${API_URL}/auth/complete-signup/`;
+            try {
+                log(`POST ${url}`, data);
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data),
+                });
+                const json = await response.json();
+                log('Complete Signup response', { status: response.status, json });
+                if (!response.ok) throw new Error(json.error || 'Signup failed');
+                return json;
+            } catch (error) {
+                log('Complete Signup error', error);
                 throw error;
             }
         },
@@ -42,15 +78,17 @@ export const api = {
                 const response = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data),
+                    body: JSON.stringify({
+                        identifier: data.email || data.phone || data.identifier,
+                        password: data.password
+                    }),
                 });
                 const json = await response.json();
                 log('Login response', { status: response.status, json });
-                if (!response.ok) throw new Error(JSON.stringify(json) || 'Login failed');
+                if (!response.ok) throw new Error(json.error || 'Login failed');
                 return json;
             } catch (error) {
                 log('Login error', error);
-                throw error;
                 throw error;
             }
         },

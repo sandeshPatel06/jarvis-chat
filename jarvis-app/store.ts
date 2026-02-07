@@ -183,9 +183,6 @@ const stopRingtone = async () => {
 const mockChats: Chat[] = [];
 
 export const useStore = create<AppState>((set, get) => {
-    // Init DB
-    database.initDatabase();
-
     return {
         user: null,
         token: null,
@@ -990,44 +987,67 @@ export const useStore = create<AppState>((set, get) => {
             })
         })),
         setChats: (chats) => set({ chats }),
-        addMessage: (message) => set((state) => {
+        addMessage: (message) => {
             const chatId = (message.conversation_id || message.conversation)?.toString();
-            const msgId = message.id.toString(); // Ensure ID is a string for comparison
-            console.log('[addMessage] Attempting to add message:', { id: msgId, chatId });
+            const msgId = message.id.toString();
 
-            return {
-                chats: state.chats.map((chat) => {
-                    if (chat.id === chatId) {
-                        // Check if this is a temp message being replaced by a real one
-                        const tempIdMatch = chat.messages.findIndex(m => m.id.startsWith('temp_') && m.text === message.text && m.sender === 'me');
+            const { chats } = get();
+            const chatExists = chats.some(c => c.id === chatId);
 
-                        let newMessages = [...chat.messages];
+            if (!chatExists) {
+                console.log('[addMessage] Chat not found, creating placeholder:', chatId);
+                const isFromMe = message.sender === 'me' || (message.sender?.username === get().user?.username);
+                const placeholderChat: Chat = {
+                    id: chatId,
+                    name: 'Loading...',
+                    avatar: null, // Initial placeholder avatar
+                    lastMessage: message.text || (message.file ? 'Attachment' : ''),
+                    lastMessageTime: new Date(message.timestamp),
+                    unreadCount: isFromMe ? 0 : 1,
+                    messages: [{ ...message, id: msgId }],
+                    hasMore: true
+                };
+                set((state) => ({
+                    chats: [placeholderChat, ...state.chats]
+                }));
+                // Fetch full chat details in background
+                get().fetchChats();
+                return;
+            }
 
-                        if (tempIdMatch !== -1) {
-                            newMessages.splice(tempIdMatch, 1, { ...message, id: msgId });
-                        } else if (!chat.messages.some(m => m.id.toString() === msgId)) {
-                            console.log('[addMessage] Adding new message to chat:', chatId);
-                            newMessages = [{ ...message, id: msgId }, ...chat.messages];
-                        } else {
-                            console.log('[addMessage] Duplicate detected, skipping:', msgId);
-                            return chat;
+            set((state) => {
+                return {
+                    chats: state.chats.map((chat) => {
+                        if (chat.id === chatId) {
+                            const tempIdMatch = chat.messages.findIndex(m => m.id.startsWith('temp_') && m.text === message.text && m.sender === 'me');
+                            let newMessages = [...chat.messages];
+
+                            if (tempIdMatch !== -1) {
+                                newMessages.splice(tempIdMatch, 1, { ...message, id: msgId });
+                            } else if (!chat.messages.some(m => m.id.toString() === msgId)) {
+                                console.log('[addMessage] Adding new message to chat:', chatId);
+                                newMessages = [{ ...message, id: msgId }, ...chat.messages];
+                            } else {
+                                return chat;
+                            }
+
+                            return {
+                                ...chat,
+                                messages: newMessages,
+                                lastMessage: message.text || (message.file ? 'Attachment' : ''),
+                                lastMessageTime: new Date(message.timestamp),
+                                unreadCount: state.activeChatId === chatId ? chat.unreadCount : (chat.unreadCount || 0) + 1
+                            };
                         }
-
-                        return {
-                            ...chat,
-                            messages: newMessages,
-                            lastMessage: message.text || (message.file ? 'Attachment' : ''),
-                            lastMessageTime: new Date(message.timestamp)
-                        };
-                    }
-                    return chat;
-                }).sort((a, b) => {
-                    const timeA = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
-                    const timeB = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
-                    return timeB - timeA;
-                })
-            };
-        }),
+                        return chat;
+                    }).sort((a, b) => {
+                        const timeA = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
+                        const timeB = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
+                        return timeB - timeA;
+                    })
+                };
+            });
+        },
         connectWebSocket: () => {
             const { token, socket } = get();
             if (socket || !token) return;
@@ -1360,18 +1380,31 @@ export const useStore = create<AppState>((set, get) => {
                 });
 
                 set((state) => {
-                    const mergedChats = newChatsData.map((apiChat: Chat) => {
-                        const existing = state.chats.find(c => c.id === apiChat.id);
-                        if (existing) {
+                    const apiChatMap = new Map(newChatsData.map((c: any) => [c.id, c]));
+
+                    const updatedExisting = state.chats.map(existing => {
+                        const apiData = apiChatMap.get(existing.id);
+                        if (apiData) {
                             return {
-                                ...apiChat,
+                                ...existing,
+                                ...apiData,
                                 messages: existing.messages,
                                 hasMore: existing.hasMore
                             };
                         }
-                        return apiChat;
+                        return existing;
                     });
-                    return { chats: mergedChats };
+
+                    const currentIds = new Set(updatedExisting.map(c => c.id));
+                    const newFromApi = newChatsData.filter((c: any) => !currentIds.has(c.id));
+
+                    return {
+                        chats: [...updatedExisting, ...newFromApi].sort((a, b) => {
+                            const timeA = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
+                            const timeB = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
+                            return timeB - timeA;
+                        })
+                    };
                 });
 
                 // Save to DB
@@ -1615,6 +1648,7 @@ export const useStore = create<AppState>((set, get) => {
                 if (token && userStr) {
                     set({ token, user: JSON.parse(userStr) });
                     get().connectWebSocket();
+                    get().fetchChats(); // Restore chats from local DB immediately
                 }
 
                 if (theme) {

@@ -75,23 +75,27 @@ export default function SelectContactScreen() {
                 }
             }
 
-            // Map contacts with Jarvis account status
-            const mappedContacts: Contact[] = data
-                .filter(contact => contact.phoneNumbers && contact.phoneNumbers.length > 0)
-                .map(contact => {
-                    const phone = contact.phoneNumbers![0].number || '';
-                    const normalizedPhone = normalizePhone(phone);
+            // Map contacts with Jarvis account status and deduplicate
+            const contactMap = new Map<string, Contact>();
 
-                    // Find matching Jarvis user by normalized phone number
-                    const jarvisUser = jarvisUsers.find((u: any) => {
-                        const userPhone = normalizePhone(u.phone_number || '');
-                        return userPhone === normalizedPhone;
-                    });
+            data.forEach(contact => {
+                if (!contact.phoneNumbers || contact.phoneNumbers.length === 0) return;
 
-                    if (jarvisUser) {
-                        // Contact has Jarvis account - use backend data
-                        return {
-                            id: jarvisUser.id.toString(),
+                const phone = contact.phoneNumbers[0].number || '';
+                const normalizedPhone = normalizePhone(phone);
+
+                // Find matching Jarvis user by normalized phone number
+                const jarvisUser = jarvisUsers.find((u: any) => {
+                    const userPhone = normalizePhone(u.phone_number || '');
+                    return userPhone === normalizedPhone;
+                });
+
+                if (jarvisUser) {
+                    const jid = jarvisUser.id.toString();
+                    // If we already have this Jarvis user (possible if multiple local contacts share a number), skip
+                    if (!contactMap.has(jid)) {
+                        contactMap.set(jid, {
+                            id: jid,
                             username: jarvisUser.username,
                             phone: phone,
                             has_account: true,
@@ -99,19 +103,24 @@ export default function SelectContactScreen() {
                             bio: jarvisUser.bio,
                             is_online: jarvisUser.is_online || false,
                             last_seen: jarvisUser.last_seen,
-                        };
-                    } else {
-                        // Contact doesn't have Jarvis account - use device contact data
-                        return {
+                        });
+                    }
+                } else {
+                    // Non-Jarvis contact - use device contact ID which is guaranteed unique by the system
+                    // But wait, if two contacts in phonebook have same number but different names,
+                    // they will have different contact.id. This is fine.
+                    if (!contactMap.has(contact.id)) {
+                        contactMap.set(contact.id, {
                             id: contact.id,
                             username: contact.name || 'Unknown',
                             phone: phone,
                             has_account: false,
-                        };
+                        });
                     }
-                });
+                }
+            });
 
-            setContacts(mappedContacts);
+            setContacts(Array.from(contactMap.values()));
         } catch (error) {
             console.error('Error loading contacts:', error);
         } finally {

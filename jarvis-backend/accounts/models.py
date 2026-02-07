@@ -2,7 +2,8 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 
 class User(AbstractUser):
-    phone_number = models.CharField(max_length=15, blank=True, null=True)
+    email = models.EmailField(unique=True)
+    phone_number = models.CharField(max_length=15, blank=True, null=True, unique=True)
     profile_picture = models.ImageField(upload_to='profile_pics/', blank=True, null=True)
     bio = models.TextField(blank=True, null=True)
     last_seen = models.DateTimeField(null=True, blank=True)
@@ -52,3 +53,22 @@ class BlockedUser(models.Model):
     
     def __str__(self):
         return f"{self.blocker} blocked {self.blocked}"
+
+class OTP(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    code = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_verified = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"OTP {self.code} for {self.user.username}"
+
+class PendingVerification(models.Model):
+    identifier = models.CharField(max_length=255) # email or phone
+    code = models.CharField(max_length=6)
+    session_id = models.CharField(max_length=100, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_verified = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"Pending {self.identifier} ({self.code})"
